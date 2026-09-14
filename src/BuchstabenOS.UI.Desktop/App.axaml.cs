@@ -1,6 +1,5 @@
 using System;
 using System.Linq;
-using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -18,6 +17,7 @@ using BuchstabenOS.Infrastructure.System;
 using BuchstabenOS.UI.Desktop.ViewModels;
 using BuchstabenOS.UI.Desktop.Views;
 using Microsoft.Extensions.DependencyInjection;
+using Serilog;
 
 namespace BuchstabenOS.UI.Desktop;
 
@@ -30,21 +30,23 @@ public partial class App : Avalonia.Application
         AvaloniaXamlLoader.Load(this);
     }
 
-    public override async void OnFrameworkInitializationCompleted()
+    public override void OnFrameworkInitializationCompleted()
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            Log.Information("Framework-Initialisierung gestartet...");
             DisableAvaloniaDataAnnotationValidation();
 
             // Dependency Injection Container aufbauen
             var services = new ServiceCollection();
             ConfigureServices(services, desktop.Args);
             _serviceProvider = services.BuildServiceProvider();
+            Log.Information("DI-Container erfolgreich initialisiert.");
 
             var mainVm = _serviceProvider.GetRequiredService<MainWindowViewModel>();
-            await mainVm.InitializeAsync();
 
             bool isKiosk = desktop.Args == null || !desktop.Args.Contains("--windowed");
+            Log.Information("Fenstermodus: {Mode}", isKiosk ? "Kiosk (Vollbild)" : "Windowed (Fenster)");
 
             var mainWindow = new MainWindow
             {
@@ -64,7 +66,24 @@ public partial class App : Avalonia.Application
                 mainWindow.Height = 600;
             }
 
+            // WICHTIG: desktop.MainWindow muss synchron zugewiesen werden!
             desktop.MainWindow = mainWindow;
+            Log.Information("desktop.MainWindow zugewiesen (Fenstertitel: {Title}).", mainWindow.Title);
+
+            // Asynchrone Initialisierung an das Opened-Event des Fensters binden
+            mainWindow.Opened += async (sender, args) =>
+            {
+                Log.Information("Hauptfenster wurde geöffnet. Initialisiere Spiel & Wörter...");
+                try
+                {
+                    await mainVm.InitializeAsync();
+                    Log.Information("Spiel erfolgreich initialisiert und bereit!");
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "Fehler bei der Initialisierung des Hauptspiels!");
+                }
+            };
         }
 
         base.OnFrameworkInitializationCompleted();
@@ -82,9 +101,8 @@ public partial class App : Avalonia.Application
         // Domain Services & Models
         services.AddSingleton<FontScaleCalculator>();
         
-        // Wörterbuch für Free-Typing laden
-        var dictRepo = new JsonWordDictionaryRepository();
-        var initialWords = dictRepo.LoadWordsForGameAsync("free-typing").GetAwaiter().GetResult();
+        // Wörterbuch synchron mit Standardwörtern initialisieren (verhindert Deadlocks auf dem UI-Thread!)
+        var initialWords = JsonWordDictionaryRepository.GetDefaultWordsForGame("free-typing");
         services.AddSingleton(new WordDetector(initialWords));
 
         services.AddSingleton<TextStage>();

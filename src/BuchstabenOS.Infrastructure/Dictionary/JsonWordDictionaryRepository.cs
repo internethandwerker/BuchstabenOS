@@ -83,7 +83,7 @@ public class JsonWordDictionaryRepository : IWordDictionaryRepository
 
     private string GetFilePath(string gameId) => Path.Combine(_storageDirectory, $"{gameId.ToLowerInvariant()}.json");
 
-    private static List<string> GetDefaultWordsForGame(string gameId)
+    public static List<string> GetDefaultWordsForGame(string gameId)
     {
         if (gameId.Equals("free-typing", StringComparison.OrdinalIgnoreCase))
         {
