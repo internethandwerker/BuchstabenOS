@@ -16,29 +16,49 @@
         <!-- ========================================================= -->
         <!-- BÜHNE 1: SPIELBEREICH (KIND-PERSPEKTIVE)                  -->
         <!-- ========================================================= -->
-        <Grid RowDefinitions="*,Auto" Margin="40">
+        <Grid RowDefinitions="*,Auto,*" Margin="40">
             
-            <!-- Hauptanzeige: Riesige, dynamisch skalierende Buchstaben -->
-            <Grid Grid.Row="0" HorizontalAlignment="Center" VerticalAlignment="Center">
+            <!-- OBERER BEREICH: Schwebende, nach oben verblassende Historie-Zeilen -->
+            <StackPanel Grid.Row="0"
+                        VerticalAlignment="Bottom"
+                        HorizontalAlignment="Center"
+                        Spacing="6"
+                        Margin="0,0,0,24">
+                <ItemsControl ItemsSource="{Binding FloatingHistoryLines}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:HistoryLineItem">
+                            <TextBlock Text="{Binding Text}"
+                                       FontSize="{Binding FontSize}"
+                                       Opacity="{Binding Opacity}"
+                                       Foreground="#E5E4DC"
+                                       FontWeight="Medium"
+                                       TextAlignment="Center"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,3" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+
+            <!-- BILDSCHIRMMITTE: Die aktive Schreibzeile in voller Pracht -->
+            <Grid Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center">
                 
                 <!-- Sanfter Hinweis für den Start -->
                 <TextBlock Text="{Binding ChildHint}"
-                           FontSize="36"
+                           FontSize="34"
                            Foreground="#424652"
                            FontWeight="Medium"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center"
                            IsVisible="{Binding !DisplayText.Length}" />
 
-                <!-- Die getippten Buchstaben -->
+                <!-- Die getippten Buchstaben in der Bildschirmmitte -->
                 <TextBlock Text="{Binding DisplayText}"
                            FontSize="{Binding FontSize}"
                            FontWeight="Bold"
-                           Foreground="{Binding IsWordCelebrationActive, Converter={x:Null}}"
                            TextAlignment="Center"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center"
-                           TextWrapping="Wrap"
                            Classes.celebrating="{Binding IsWordCelebrationActive}">
                     <TextBlock.Styles>
                         <Style Selector="TextBlock">
@@ -51,25 +71,25 @@
                 </TextBlock>
             </Grid>
 
-            <!-- Wort-Feier-Banner (erscheint bei Treffern wie MAMA oder MORITZ) -->
-            <Border Grid.Row="1"
-                    Background="#2A2212"
-                    BorderBrush="#FFD166"
-                    BorderThickness="2"
-                    CornerRadius="16"
-                    Padding="20,12"
-                    HorizontalAlignment="Center"
-                    IsVisible="{Binding IsWordCelebrationActive}">
-                <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
-                    <TextBlock Text="⭐" FontSize="28" VerticalAlignment="Center" />
-                    <TextBlock Text="{Binding CelebratedWord, StringFormat='Wort gezaubert: {0}!'}"
-                               FontSize="28"
-                               FontWeight="Bold"
-                               Foreground="#FFD166"
-                               VerticalAlignment="Center" />
-                    <TextBlock Text="⭐" FontSize="28" VerticalAlignment="Center" />
-                </StackPanel>
-            </Border>
+            <!-- UNTERER BEREICH: Wort-Feier-Banner -->
+            <Grid Grid.Row="2" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,28,0,0">
+                <Border Background="#2A2212"
+                        BorderBrush="#FFD166"
+                        BorderThickness="2"
+                        CornerRadius="16"
+                        Padding="24,12"
+                        IsVisible="{Binding IsWordCelebrationActive}">
+                    <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                        <TextBlock Text="⭐" FontSize="30" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding CelebratedWord, StringFormat='Wort gezaubert: {0}!'}"
+                                   FontSize="28"
+                                   FontWeight="Bold"
+                                   Foreground="#FFD166"
+                                   VerticalAlignment="Center" />
+                        <TextBlock Text="⭐" FontSize="30" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+            </Grid>
         </Grid>
 
         <!-- ========================================================= -->
@@ -80,7 +100,7 @@
               HorizontalAlignment="Stretch"
               VerticalAlignment="Stretch">
 
-            <!-- PIN EINGABE (Vor der Authentifizierung) -->
+            <!-- PIN EINGABE -->
             <Border Background="#1C1E26"
                     BorderBrush="#2E3242"
                     BorderThickness="2"
@@ -146,7 +166,7 @@
                 </StackPanel>
             </Border>
 
-            <!-- ELTERN DASHBOARD (Nach erfolgreicher PIN-Eingabe) -->
+            <!-- ELTERN DASHBOARD -->
             <Border Background="#1A1C24"
                     BorderBrush="#2E3242"
                     BorderThickness="2"
@@ -210,7 +230,6 @@
                                         Content="Lautieren (M, A, P)"
                                         Command="{Binding ParentMenu.SetSpeechModeCommand}"
                                         CommandParameter="Phonetic"
-                                        Background="{Binding ParentMenu.IsPhoneticSpeechMode, Converter={x:Null}}"
                                         Classes.active="{Binding ParentMenu.IsPhoneticSpeechMode}"
                                         CornerRadius="8"
                                         Padding="12,8"
@@ -327,7 +346,7 @@
 
                         <Separator Background="#2E3242" Height="1" />
 
-                        <!-- 3. Systemaktionen (Desktop freigeben, Herunterfahren) -->
+                        <!-- 3. Systemaktionen -->
                         <StackPanel Spacing="12">
                             <TextBlock Text="💻 System-Steuerung (Linux)"
                                        FontSize="17"

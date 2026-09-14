@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using BuchstabenOS.UI.Desktop.ViewModels;
+using Serilog;
 
 namespace BuchstabenOS.UI.Desktop.Views;
 
@@ -9,8 +10,33 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        TextInput += OnTextInputReceived;
     }
 
+    /// <summary>
+    /// Verarbeitet alle echten Zeicheneingaben (Buchstaben, Umlaute Ä, Ö, Ü, ß, Zahlen).
+    /// Nutzt das native TextInput-Event des Fensters, wodurch das Tastatur-Layout des Betriebssystems
+    /// zu 100% korrekt und fehlerfrei interpretiert wird.
+    /// </summary>
+    private async void OnTextInputReceived(object? sender, TextInputEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel vm || vm.IsParentOverlayVisible) return;
+        if (string.IsNullOrEmpty(e.Text)) return;
+
+        foreach (char c in e.Text)
+        {
+            // Steuerzeichen und Leertaste werden gesondert über OnKeyDown gesteuert
+            if (char.IsControl(c) || c == ' ') continue;
+
+            Log.Debug("TextInput empfangen: '{Char}'", c);
+            await vm.HandleKeyInputAsync(c, isSpace: false, isBackspace: false, ctrl: false, alt: false, shift: false);
+        }
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// Fängt Navigationstasten, Backspace, Leertaste und die geheime Eltern-Kombination ab.
+    /// </summary>
     protected override async void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
@@ -21,7 +47,7 @@ public partial class MainWindow : Window
         bool alt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
         bool shift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
 
-        // Geheime Elternkombination: Ctrl + Alt + Shift + P
+        // 1. Geheime Elternkombination: Ctrl + Alt + Shift + P
         if (ctrl && alt && shift && e.Key == Key.P)
         {
             vm.ToggleParentOverlay();
@@ -29,7 +55,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Wenn das Elternmenü offen ist:
+        // 2. Wenn das Elternmenü offen ist:
         if (vm.IsParentOverlayVisible)
         {
             if (e.Key == Key.Escape)
@@ -37,61 +63,25 @@ public partial class MainWindow : Window
                 vm.ToggleParentOverlay();
                 e.Handled = true;
             }
-            // Ansonsten lassen wir TextBoxen normal tippen
             return;
         }
 
-        // Im Spielmodus: Alle Tasten exklusiv abfangen
-        bool isBackspace = e.Key == Key.Back;
-        bool isSpace = e.Key == Key.Space;
-
-        char keyChar = '\0';
-
-        if (!isBackspace && !isSpace)
+        // 3. Steuerungstasten im Spielmodus:
+        if (e.Key == Key.Back)
         {
-            keyChar = ExtractCharFromKey(e.Key, e.KeySymbol, shift);
-        }
-
-        if (isBackspace || isSpace || keyChar != '\0')
-        {
-            await vm.HandleKeyInputAsync(keyChar, isSpace, isBackspace, ctrl, alt, shift);
+            await vm.HandleKeyInputAsync('\0', isSpace: false, isBackspace: true, ctrl, alt, shift);
             e.Handled = true;
         }
-    }
-
-    private static char ExtractCharFromKey(Key key, string? keySymbol, bool shift)
-    {
-        // Wenn Avalonia ein echtes Symbol liefert (z.B. bei Umlauten):
-        if (!string.IsNullOrEmpty(keySymbol) && keySymbol.Length == 1)
+        else if (e.Key == Key.Space)
         {
-            return keySymbol[0];
+            await vm.HandleKeyInputAsync(' ', isSpace: true, isBackspace: false, ctrl, alt, shift);
+            e.Handled = true;
         }
-
-        // Standard Buchstabentasten
-        if (key >= Key.A && key <= Key.Z)
+        else if (e.Key == Key.Return || e.Key == Key.Enter)
         {
-            return (char)('A' + (key - Key.A));
+            // Enter: Zeile abschließen und nach oben schieben
+            await vm.HandleKeyInputAsync('\0', isSpace: false, isBackspace: false, ctrl, alt, shift, isEnter: true);
+            e.Handled = true;
         }
-
-        // Ziffern 0-9
-        if (key >= Key.D0 && key <= Key.D9)
-        {
-            return (char)('0' + (key - Key.D0));
-        }
-
-        if (key >= Key.NumPad0 && key <= Key.NumPad9)
-        {
-            return (char)('0' + (key - Key.NumPad0));
-        }
-
-        // Häufige Sonderzeichen
-        return key switch
-        {
-            Key.OemOpenBrackets => 'ß',
-            Key.OemQuotes => 'Ä',
-            Key.OemSemicolon => 'Ö',
-            Key.OemQuestion => 'Ü',
-            _ => '\0'
-        };
     }
 }

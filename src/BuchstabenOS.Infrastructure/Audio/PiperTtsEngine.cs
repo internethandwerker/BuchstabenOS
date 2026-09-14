@@ -1,11 +1,13 @@
 using System.Diagnostics;
 using BuchstabenOS.Application.Ports;
+using Serilog;
 
 namespace BuchstabenOS.Infrastructure.Audio;
 
 /// <summary>
 /// Lokale neuronale Sprachsynthese mit Piper TTS unter Linux.
-/// Enthält einen lokalen Dateicache, sodass bekannte Wörter sofort abgespielt werden.
+/// Arbeitet auf einer eigenen Sprach-Spur (Track 2) unabhängig von der Buchstaben-Spur,
+/// sodass getippte Buchstaben und gesprochene Wörter parallel erklingen.
 /// </summary>
 public class PiperTtsEngine : ITtsEngine
 {
@@ -13,6 +15,7 @@ public class PiperTtsEngine : ITtsEngine
     private readonly string? _modelPath;
     private readonly string _cacheDirectory;
     private readonly string? _audioPlayerBinary;
+    private static readonly object _synthLock = new();
 
     public bool IsAvailable => !string.IsNullOrEmpty(_piperExecutable) && File.Exists(_modelPath);
 
@@ -20,7 +23,9 @@ public class PiperTtsEngine : ITtsEngine
     {
         _piperExecutable = customPiperPath ?? FindPiperBinary();
         _modelPath = customModelPath ?? FindModelPath();
-        _audioPlayerBinary = File.Exists("/usr/bin/paplay") ? "/usr/bin/paplay" : (File.Exists("/usr/bin/aplay") ? "/usr/bin/aplay" : null);
+        _audioPlayerBinary = File.Exists("/usr/bin/pw-play") ? "/usr/bin/pw-play" :
+                             (File.Exists("/usr/bin/paplay") ? "/usr/bin/paplay" :
+                             (File.Exists("/usr/bin/aplay") ? "/usr/bin/aplay" : null));
 
         _cacheDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
@@ -28,6 +33,8 @@ public class PiperTtsEngine : ITtsEngine
         );
 
         Directory.CreateDirectory(_cacheDirectory);
+        Log.Information("PiperTtsEngine initialisiert. Piper: {Piper}, Model: {Model}, Cache: {Cache}",
+            _piperExecutable ?? "nicht gefunden", _modelPath ?? "nicht gefunden", _cacheDirectory);
     }
 
     public async Task SpeakWordAsync(string word, CancellationToken cancellationToken = default)
@@ -37,7 +44,7 @@ public class PiperTtsEngine : ITtsEngine
         string sanitized = SanitizeWordForFileName(word);
         string cachedFile = Path.Combine(_cacheDirectory, $"{sanitized}.wav");
 
-        // 1. Wenn bereits im Cache vorhanden: Sofort abspielen!
+        // 1. Wenn bereits im Cache vorhanden: Sofort auf Track 2 abspielen!
         if (File.Exists(cachedFile))
         {
             PlayAudioFile(cachedFile);
@@ -47,7 +54,7 @@ public class PiperTtsEngine : ITtsEngine
         // 2. Wenn Piper verfügbar ist: Synthetisieren, im Cache ablegen und abspielen
         if (IsAvailable)
         {
-            bool success = await SynthesizeToWavAsync(word, cachedFile, cancellationToken);
+            bool success = await Task.Run(() => SynthesizeToWavThreadSafe(word, cachedFile), cancellationToken);
             if (success && File.Exists(cachedFile))
             {
                 PlayAudioFile(cachedFile);
@@ -55,21 +62,21 @@ public class PiperTtsEngine : ITtsEngine
             }
         }
 
-        // 3. Fallback: Wenn Piper noch nicht installiert ist, geben wir ein akustisches Signal
-        // und protokollieren es sauber (während des Setups)
-        Debug.WriteLine($"[TTS-Fallback] Wort gesprochen: '{word}' (Piper installiert: {IsAvailable})");
+        Log.Information("Wort gesprochen (simuliert/Fallback): '{Word}'", word);
     }
 
-    private async Task<bool> SynthesizeToWavAsync(string text, string outputPath, CancellationToken ct)
+    private bool SynthesizeToWavThreadSafe(string text, string targetWavPath)
     {
         if (string.IsNullOrEmpty(_piperExecutable) || string.IsNullOrEmpty(_modelPath)) return false;
+
+        string tempPath = $"{targetWavPath}.{Guid.NewGuid():N}.tmp";
 
         try
         {
             var psi = new ProcessStartInfo
             {
                 FileName = _piperExecutable,
-                Arguments = $"--model \"{_modelPath}\" --output_file \"{outputPath}\"",
+                Arguments = $"--model \"{_modelPath}\" --output_file \"{tempPath}\"",
                 UseShellExecute = false,
                 RedirectStandardInput = true,
                 RedirectStandardError = true,
@@ -79,14 +86,39 @@ public class PiperTtsEngine : ITtsEngine
             using var process = new Process { StartInfo = psi };
             process.Start();
 
-            await process.StandardInput.WriteLineAsync(text.AsMemory(), ct);
-            process.StandardInput.Close();
+            using (var writer = process.StandardInput)
+            {
+                writer.WriteLine(text);
+            }
 
-            await process.WaitForExitAsync(ct);
-            return process.ExitCode == 0;
+            process.WaitForExit(5000);
+
+            if (process.ExitCode == 0 && File.Exists(tempPath))
+            {
+                lock (_synthLock)
+                {
+                    if (!File.Exists(targetWavPath))
+                    {
+                        File.Move(tempPath, targetWavPath, overwrite: true);
+                    }
+                    else
+                    {
+                        File.Delete(tempPath);
+                    }
+                }
+                return true;
+            }
+
+            if (File.Exists(tempPath)) File.Delete(tempPath);
+            return false;
         }
-        catch
+        catch (Exception ex)
         {
+            Log.Error(ex, "Fehler bei Piper Sprachsynthese für Wort '{Text}'", text);
+            if (File.Exists(tempPath))
+            {
+                try { File.Delete(tempPath); } catch { }
+            }
             return false;
         }
     }
@@ -106,9 +138,9 @@ public class PiperTtsEngine : ITtsEngine
             };
             Process.Start(psi);
         }
-        catch
+        catch (Exception ex)
         {
-            // Best effort
+            Log.Error(ex, "Fehler beim Abspielen von Sprach-WAV: {File}", filePath);
         }
     }
 
@@ -123,9 +155,9 @@ public class PiperTtsEngine : ITtsEngine
     {
         string[] candidates =
         {
-            "/usr/bin/piper",
-            "/usr/local/bin/piper",
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "bin", "piper"),
+            "/usr/local/bin/piper",
+            "/usr/bin/piper",
             Path.Combine(AppContext.BaseDirectory, "assets", "piper", "piper")
         };
 
@@ -136,8 +168,8 @@ public class PiperTtsEngine : ITtsEngine
     {
         string[] candidates =
         {
-            "/usr/share/piper/voices/de/de_DE-thorsten-medium.onnx",
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "share", "piper", "de_DE-thorsten-medium.onnx"),
+            "/usr/share/piper/voices/de/de_DE-thorsten-medium.onnx",
             Path.Combine(AppContext.BaseDirectory, "assets", "piper", "de_DE-thorsten-medium.onnx")
         };
 
