@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=BuchstabenOS Kiosk
+Comment=Moritz BuchstabenOS Lernspiel Session für BunsenLabs
+Exec=/usr/local/bin/buchstabenos-session.sh
+Type=Application
+DesktopNames=BuchstabenOS

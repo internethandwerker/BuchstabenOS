@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/BuchstabenOS.Application/BuchstabenOS.Application.csproj" />
+    <Project Path="src/BuchstabenOS.Domain/BuchstabenOS.Domain.csproj" />
+    <Project Path="src/BuchstabenOS.Infrastructure/BuchstabenOS.Infrastructure.csproj" />
+    <Project Path="src/BuchstabenOS.UI.Desktop/BuchstabenOS.UI.Desktop.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/BuchstabenOS.Domain.Tests/BuchstabenOS.Domain.Tests.csproj" />
+  </Folder>
+</Solution>
