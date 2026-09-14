@@ -6,6 +6,7 @@
 ---
 
 [![Build & Test](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPLv3-blue.svg)](LICENSE)
 [![Target Framework](https://img.shields.io/badge/.NET-10.0-purple.svg)](https://dotnet.microsoft.com/)
 [![UI Framework](https://img.shields.io/badge/Avalonia-11.3-blue.svg)](https://avaloniaui.net/)
 [![Architecture](https://img.shields.io/badge/Architecture-DDD%20%2F%20Clean%20Code-orange.svg)]()
@@ -147,6 +148,11 @@ Ausführliche Dokumentation findest du im Ordner [`docs/`](docs/).
 ---
 
 ## 📄 Lizenz & Autorenschaft
+
+Dieses Projekt ist lizenziert unter der **GNU Affero General Public License v3.0 (AGPL-3.0)** – siehe die Datei [`LICENSE`](LICENSE) für Details.
+
+*   **Frei für die Welt:** Alle Eltern, Kinder, Schulen, Kindergärten und Bastler dürfen dieses Projekt kostenlos nutzen, verändern und weitergeben.
+*   **Schutz vor Konzernen (Starkes Copyleft):** Wer BuchstabenOS verändert oder weiterverbreitet, muss zwingend alle Änderungen unter derselben freien Lizenz offenlegen. Proprietäre Ausbeutung oder geschlossene kommerzielle Nutzung durch Konzerne ist ausgeschlossen.
 
 Entwickelt von **Alex** ([@internethandwerker](https://github.com/internethandwerker)) und **Antigravity**.  
 *Solide Handwerkskunst für neugierige Kinder.* 🛠️❤️
