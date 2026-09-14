@@ -27,15 +27,15 @@ public class LinuxAudioSamplePlayer : IAudioPlayer
     {
         char upper = char.ToUpperInvariant(letter);
         string modeFolder = mode == SpeechMode.Phonetic ? "laute" : "alphabet";
-        string samplePath = Path.Combine(_assetsDirectory, "audio", modeFolder, $"{upper}.wav");
+        string? samplePath = ResolveAudioSample(modeFolder, upper.ToString());
 
-        if (File.Exists(samplePath))
+        if (samplePath != null && File.Exists(samplePath))
         {
             PlayTrackFireAndForget(samplePath);
         }
         else
         {
-            Log.Warning("Audiodatei für '{Letter}' ({Mode}) nicht gefunden unter {Path}", upper, mode, samplePath);
+            Log.Warning("Audiodatei für '{Letter}' ({Mode}) nicht gefunden", upper, mode);
             PlayFallbackTone(upper);
         }
 
@@ -44,13 +44,52 @@ public class LinuxAudioSamplePlayer : IAudioPlayer
 
     public ValueTask PlayJingleAsync(string jingleName, CancellationToken cancellationToken = default)
     {
-        string jinglePath = Path.Combine(_assetsDirectory, "audio", "jingles", $"{jingleName}.wav");
-        if (File.Exists(jinglePath))
+        string? jinglePath = ResolveAudioSample("jingles", jingleName);
+        if (jinglePath != null && File.Exists(jinglePath))
         {
             PlayTrackFireAndForget(jinglePath);
         }
 
         return ValueTask.CompletedTask;
+    }
+
+    private string? ResolveAudioSample(string subfolder, string name)
+    {
+        string[] extensions = [".wav", ".ogg", ".mp3", ".flac"];
+
+        // 1. Benutzerdefinierte Sounds in ~/.config/buchstabenos/sounds/{subfolder}/
+        string userSoundsDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".config", "buchstabenos", "sounds", subfolder);
+
+        if (Directory.Exists(userSoundsDir))
+        {
+            foreach (var ext in extensions)
+            {
+                string candidate = Path.Combine(userSoundsDir, $"{name}{ext}");
+                if (File.Exists(candidate))
+                {
+                    Log.Debug("Verwende benutzerdefiniertes Audio-Sample: {Path}", candidate);
+                    return candidate;
+                }
+            }
+        }
+
+        // 2. Standard-Assets im Projekt / Installationsverzeichnis
+        string assetFolder = Path.Combine(_assetsDirectory, "audio", subfolder);
+        if (Directory.Exists(assetFolder))
+        {
+            foreach (var ext in extensions)
+            {
+                string candidate = Path.Combine(assetFolder, $"{name}{ext}");
+                if (File.Exists(candidate))
+                {
+                    return candidate;
+                }
+            }
+        }
+
+        return null;
     }
 
     private void PlayTrackFireAndForget(string filePath)
