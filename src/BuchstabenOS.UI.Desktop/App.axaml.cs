@@ -127,12 +127,9 @@ public partial class App : Avalonia.Application
             var dict = sp.GetRequiredService<IWordDictionaryRepository>();
             var sys = sp.GetRequiredService<ISystemControl>();
             var set = sp.GetRequiredService<ISettingsRepository>();
+            var detector = sp.GetRequiredService<WordDetector>();
 
-            MainWindowViewModel? mainVmRef = null;
-            var parentVm = new ParentMenuViewModel(dict, sys, set, () =>
-            {
-                mainVmRef?.ToggleParentOverlay();
-            });
+            var parentVm = new ParentMenuViewModel(dict, sys, set, detector);
 
             parentVm.SettingsUpdated += updatedSettings =>
             {

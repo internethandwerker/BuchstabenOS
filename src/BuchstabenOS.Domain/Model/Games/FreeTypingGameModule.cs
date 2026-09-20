@@ -147,6 +147,13 @@ public class FreeTypingGameModule : IGameModule, IRenderableGame
         );
     }
 
+    public void ClearCelebration()
+    {
+        IsCelebrating = false;
+        CelebrationMessage = string.Empty;
+        ViewStateChanged?.Invoke();
+    }
+
     public void Reset()
     {
         Stage.Clear();

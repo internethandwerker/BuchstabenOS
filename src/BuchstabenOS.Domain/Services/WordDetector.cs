@@ -32,6 +32,59 @@ public class WordDetector
     }
 
     /// <summary>
+    /// Lädt eine neue Liste von Wörtern und initialisiert den Suchbaum vollständig neu.
+    /// </summary>
+    public void LoadWords(IEnumerable<string> words)
+    {
+        _knownWords.Clear();
+        _root.Children.Clear();
+        _root.IsEndOfWord = false;
+        _root.Word = null;
+
+        if (words != null)
+        {
+            foreach (var word in words)
+            {
+                AddWord(word);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Entfernt ein Wort aus dem Wörterbuch und baut den Präfixbaum neu auf.
+    /// </summary>
+    public bool RemoveWord(string word)
+    {
+        if (string.IsNullOrWhiteSpace(word)) return false;
+
+        string normalized = word.Trim().ToUpperInvariant();
+        if (!_knownWords.Remove(normalized)) return false;
+
+        // Trie neu aufbauen
+        _root.Children.Clear();
+        _root.IsEndOfWord = false;
+        _root.Word = null;
+
+        foreach (var w in _knownWords)
+        {
+            var current = _root;
+            foreach (char c in w)
+            {
+                if (!current.Children.TryGetValue(c, out var nextNode))
+                {
+                    nextNode = new TrieNode();
+                    current.Children[c] = nextNode;
+                }
+                current = nextNode;
+            }
+            current.IsEndOfWord = true;
+            current.Word = w;
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// Fügt ein Wort dem Wörterbuch hinzu.
     /// </summary>
     public bool AddWord(string word)

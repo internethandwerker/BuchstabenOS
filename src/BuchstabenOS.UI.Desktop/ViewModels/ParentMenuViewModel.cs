@@ -5,6 +5,7 @@ using BuchstabenOS.Application.Configuration;
 using BuchstabenOS.Application.Ports;
 using BuchstabenOS.Domain.Model.Security;
 using BuchstabenOS.Domain.Model.Typing;
+using BuchstabenOS.Domain.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -12,11 +13,6 @@ namespace BuchstabenOS.UI.Desktop.ViewModels;
 
 public partial class ParentMenuViewModel : ViewModelBase
 {
-    private readonly IWordDictionaryRepository _dictionaryRepo;
-    private readonly ISystemControl _systemControl;
-    private readonly ISettingsRepository _settingsRepo;
-    private readonly Action _onCloseRequested;
-    private AppSettings _settings = new();
 
     [ObservableProperty]
     private string _pinInput = string.Empty;
@@ -102,6 +98,13 @@ public partial class ParentMenuViewModel : ViewModelBase
     [ObservableProperty]
     private int _mathMaxSum = 10;
 
+    private readonly IWordDictionaryRepository _dictionaryRepo;
+    private readonly ISystemControl _systemControl;
+    private readonly ISettingsRepository _settingsRepo;
+    private readonly WordDetector _wordDetector;
+    private AppSettings _settings = new();
+
+    public event Action? CloseRequested;
     public event Action<SpeechMode>? SpeechModeChanged;
     public event Action<string>? GameSwitchRequested;
     public event Action<AppSettings>? SettingsUpdated;
@@ -110,12 +113,12 @@ public partial class ParentMenuViewModel : ViewModelBase
         IWordDictionaryRepository dictionaryRepo,
         ISystemControl systemControl,
         ISettingsRepository settingsRepo,
-        Action onCloseRequested)
+        WordDetector wordDetector)
     {
         _dictionaryRepo = dictionaryRepo ?? throw new ArgumentNullException(nameof(dictionaryRepo));
         _systemControl = systemControl ?? throw new ArgumentNullException(nameof(systemControl));
         _settingsRepo = settingsRepo ?? throw new ArgumentNullException(nameof(settingsRepo));
-        _onCloseRequested = onCloseRequested ?? throw new ArgumentNullException(nameof(onCloseRequested));
+        _wordDetector = wordDetector ?? throw new ArgumentNullException(nameof(wordDetector));
 
         _volume = _systemControl.GetSystemVolume();
     }
@@ -232,7 +235,8 @@ public partial class ParentMenuViewModel : ViewModelBase
         {
             GameWords.Insert(0, normalized);
             await _dictionaryRepo.AddWordForGameAsync("free-typing", normalized);
-            StatusNotification = $"Wort '{normalized}' hinzugefügt!";
+            _wordDetector.AddWord(normalized);
+            StatusNotification = $"Wort '{normalized}' hinzugefügt & sofort gespeichert!";
         }
         NewWordInput = string.Empty;
     }
@@ -240,10 +244,12 @@ public partial class ParentMenuViewModel : ViewModelBase
     [RelayCommand]
     public async Task RemoveWordAsync(string word)
     {
-        if (GameWords.Remove(word))
+        string normalized = word.Trim().ToUpperInvariant();
+        if (GameWords.Remove(normalized))
         {
-            await _dictionaryRepo.RemoveWordForGameAsync("free-typing", word);
-            StatusNotification = $"Wort '{word}' entfernt.";
+            await _dictionaryRepo.RemoveWordForGameAsync("free-typing", normalized);
+            _wordDetector.RemoveWord(normalized);
+            StatusNotification = $"Wort '{normalized}' gelöscht.";
         }
     }
 
@@ -302,8 +308,8 @@ public partial class ParentMenuViewModel : ViewModelBase
     [RelayCommand]
     public void CloseMenu()
     {
+        CloseRequested?.Invoke();
         ResetState();
-        _onCloseRequested.Invoke();
     }
 
     // --- Linux Systemeinstellungen ---
@@ -329,6 +335,7 @@ public partial class ParentMenuViewModel : ViewModelBase
     {
         GameWords.Clear();
         var words = await _dictionaryRepo.LoadWordsForGameAsync("free-typing");
+        _wordDetector.LoadWords(words);
         foreach (var w in words)
         {
             GameWords.Add(w);

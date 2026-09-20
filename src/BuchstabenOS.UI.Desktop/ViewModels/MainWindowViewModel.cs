@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Threading;
 using BuchstabenOS.Application.UseCases;
@@ -51,6 +52,11 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         _gameCoordinator = gameCoordinator ?? throw new ArgumentNullException(nameof(gameCoordinator));
         ParentMenu = parentMenu ?? throw new ArgumentNullException(nameof(parentMenu));
+
+        ParentMenu.CloseRequested += () =>
+        {
+            IsParentOverlayVisible = false;
+        };
 
         ParentMenu.SpeechModeChanged += mode =>
         {
@@ -121,13 +127,13 @@ public partial class MainWindowViewModel : ViewModelBase
         UpdateDisplay();
     }
 
+    private CancellationTokenSource? _celebrationCts;
+    private CancellationTokenSource? _wrongFeedbackCts;
+
     public void ToggleParentOverlay()
     {
         IsParentOverlayVisible = !IsParentOverlayVisible;
-        if (IsParentOverlayVisible)
-        {
-            ParentMenu.ResetState();
-        }
+        ParentMenu.ResetState();
     }
 
     private void UpdateDisplay()
@@ -145,9 +151,12 @@ public partial class MainWindowViewModel : ViewModelBase
 
         DisplayText = _activeRenderableGame.DisplayText;
         FontSize = _activeRenderableGame.CurrentFontSizePoints;
-        IsWordCelebrationActive = _activeRenderableGame.IsCelebrating;
-        CelebratedWord = _activeRenderableGame.CelebrationMessage;
-        IsWrongFeedbackActive = _activeRenderableGame.IsWrongFeedback;
+        
+        // Falls das Spiel eine Feier meldet und unser UI-Timer noch nicht läuft:
+        if (_activeRenderableGame.IsCelebrating && !IsWordCelebrationActive)
+        {
+            TriggerCelebration(_activeRenderableGame.CelebrationMessage);
+        }
 
         FloatingHistoryLines.Clear();
         var completed = _activeRenderableGame.CompletedLines;
@@ -190,6 +199,55 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
+    public void TriggerCelebration(string message, int durationMs = 3200)
+    {
+        // 1. Vorherigen Timer abbrechen (falls noch aktiv) -> Überschreiben
+        _celebrationCts?.Cancel();
+        _celebrationCts?.Dispose();
+        _celebrationCts = new CancellationTokenSource();
+        var token = _celebrationCts.Token;
+
+        CelebratedWord = message;
+        IsWordCelebrationActive = true;
+
+        Task.Delay(durationMs, token).ContinueWith(t =>
+        {
+            if (!t.IsCanceled)
+            {
+                Dispatcher.UIThread.Post(() =>
+                {
+                    IsWordCelebrationActive = false;
+                    CelebratedWord = string.Empty;
+                    if (_activeRenderableGame is FreeTypingGameModule ftm)
+                    {
+                        ftm.ClearCelebration();
+                    }
+                });
+            }
+        }, TaskScheduler.Default);
+    }
+
+    public void TriggerWrongFeedback(int durationMs = 1400)
+    {
+        _wrongFeedbackCts?.Cancel();
+        _wrongFeedbackCts?.Dispose();
+        _wrongFeedbackCts = new CancellationTokenSource();
+        var token = _wrongFeedbackCts.Token;
+
+        IsWrongFeedbackActive = true;
+
+        Task.Delay(durationMs, token).ContinueWith(t =>
+        {
+            if (!t.IsCanceled)
+            {
+                Dispatcher.UIThread.Post(() =>
+                {
+                    IsWrongFeedbackActive = false;
+                });
+            }
+        }, TaskScheduler.Default);
+    }
+
     private void OnDomainEventPublished(IDomainEvent domainEvent)
     {
         Dispatcher.UIThread.Post(() =>
@@ -197,47 +255,23 @@ public partial class MainWindowViewModel : ViewModelBase
             switch (domainEvent)
             {
                 case WordRecognizedEvent wordEvent:
-                    CelebratedWord = $"Wort gezaubert: {wordEvent.Word}!";
-                    IsWordCelebrationActive = true;
-                    Task.Delay(2500).ContinueWith(_ =>
-                    {
-                        Dispatcher.UIThread.Post(() =>
-                        {
-                            IsWordCelebrationActive = false;
-                            UpdateDisplay();
-                        });
-                    });
+                    TriggerCelebration($"Wort gezaubert: {wordEvent.Word}!");
                     break;
 
                 case MathTaskSolvedEvent solvedEvent:
-                    CelebratedWord = $"{solvedEvent.TaskText} ⭐";
-                    IsWordCelebrationActive = true;
-                    Task.Delay(2500).ContinueWith(_ =>
-                    {
-                        Dispatcher.UIThread.Post(() =>
-                        {
-                            IsWordCelebrationActive = false;
-                            UpdateDisplay();
-                        });
-                    });
+                    TriggerCelebration($"{solvedEvent.TaskText} ⭐");
                     break;
 
                 case MathTaskFailedEvent:
-                    IsWrongFeedbackActive = true;
-                    Task.Delay(1400).ContinueWith(_ =>
-                    {
-                        Dispatcher.UIThread.Post(() =>
-                        {
-                            IsWrongFeedbackActive = false;
-                            UpdateDisplay();
-                        });
-                    });
+                    TriggerWrongFeedback();
                     break;
 
                 case StageResetEvent:
+                    _celebrationCts?.Cancel();
                     IsWordCelebrationActive = false;
-                    IsWrongFeedbackActive = false;
                     CelebratedWord = string.Empty;
+                    _wrongFeedbackCts?.Cancel();
+                    IsWrongFeedbackActive = false;
                     UpdateDisplay();
                     break;
             }

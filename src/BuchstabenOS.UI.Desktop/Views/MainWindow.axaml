@@ -84,6 +84,11 @@
                         CornerRadius="16"
                         Padding="24,12"
                         IsVisible="{Binding IsWordCelebrationActive}">
+                    <Border.Transitions>
+                        <Transitions>
+                            <DoubleTransition Property="Opacity" Duration="0:0:0.35" />
+                        </Transitions>
+                    </Border.Transitions>
                     <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
                         <TextBlock Text="⭐" FontSize="30" VerticalAlignment="Center" />
                         <TextBlock Text="{Binding CelebratedWord}"
