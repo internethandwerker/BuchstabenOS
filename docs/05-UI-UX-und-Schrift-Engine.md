@@ -90,27 +90,46 @@ Das Elternmenü ist für Moritz komplett unsichtbar und kann nicht versehentlich
 *   Es erscheint ein schlichtes, zentriertes Dialogfeld: **"PIN eingeben"**.
 *   Standard-PIN: `1337` (oder frei konfigurierbar).
 
-### Funktionsumfang des Eltern-Overlays
+### Strukturierter Aufbau des Eltern-Portals
+
+Das Eltern-Dashboard ist ergonomisch in 4 klare, logisch getrennte Bereiche unterteilt mit großzügigen Scrollbar-Abständen:
+
 ```
-+-------------------------------------------------------+
-|                 ⚙️ BuchstabenOS Elternmenü            |
-+-------------------------------------------------------+
-|                                                       |
-|  Lautstärke:       [ - ]  ==========O===  [ + ] (75%) |
-|                                                       |
-|  Sprachmodus:      (•) Lautieren (Phoneme: M, A, P)   |
-|                    ( ) Alphabet (Buchstaben: Em, Ah)  |
-|                                                       |
-|  Sprechtempo:      [ Normal ]                         |
-|                                                       |
-|  Wörterbuch:       128 Kinderwörter geladen           |
-|                    [ + Eigenes Wort hinzufügen ]      |
-|                                                       |
-|  ---------------------------------------------------  |
-|  [ Zurück zum Spiel ]  [ Desktop (Linux) ]  [ Ausschalten ] |
-+-------------------------------------------------------+
++-----------------------------------------------------------------------------+
+|                     ⚙️ BuchstabenOS Eltern-Bereich                          |
++-----------------------------------------------------------------------------+
+|                                                                             |
+|  🛠️ GRUNDLEGENDE EINSTELLUNGEN                                              |
+|    Lautstärke:          [ - ]  ==========O===  [ + ] (80%)                  |
+|    Audio-Ausgabe:       [ Standard (System-Standard PipeWire)            v] |
+|    Design / Stil:       [ Midnight Chalkboard (Dunkel / Standard)        v] |
+|                                                                             |
+|  -------------------------------------------------------------------------  |
+|  🎲 MODERATION                                                              |
+|    Strategie:           [ Gewichteter Zufall (Würfel)                    v] |
+|    [x] Automatischer Spielewechsel aktiv (Rotiert nach Aufmerksamkeitsspanne)|
+|    Würfel-Gewichtung:   Buchstaben-Zauber: 50%  |  Mathe-Addition: 50%      |
+|    [ 💾 Moderations-Einstellungen speichern ]                               |
+|                                                                             |
+|  -------------------------------------------------------------------------  |
+|  🎮 SPIELE (Akkordeon / Expander)                                           |
+|    ▼ 🔤 Buchstaben-Zauber               [ ✓ Aktiv ]                         |
+|        Sprachausgabe beim Tippen:       (•) Lautieren   ( ) Alphabet        |
+|        Wörterbuch verwalten:            [ Neues Wort eingeben ] [ + Hinzufügen]|
+|        Wort-Tags: [MAMA x] [PAPA x] [AUTO x] [BAGGER x] ...                 |
+|                                                                             |
+|    ▼ ➕ Mathespiel Addition             [ ▶️ Jetzt spielen ]                 |
+|        Zahlenraum (Rechnen bis):        ==========O=== (bis 10)             |
+|        [ 💾 Mathe-Einstellungen speichern ]                                 |
+|                                                                             |
+|  -------------------------------------------------------------------------  |
+|  💻 SYSTEMEINSTELLUNGEN (Linux)                                             |
+|    [ 🖥️ Desktop freigeben ]   [ 🔄 Laptop Neustarten ]   [ ⏻ Laptop Ausschalten ] |
++-----------------------------------------------------------------------------+
 ```
 
-1.  **Zurück zum Spiel:** Schließt das Menü (`Escape`).
-2.  **Desktop (Linux):** Beendet die Kiosk-App mit Return-Code 42 $\rightarrow$ X11 Kiosk schließt sich, normaler BunsenLabs Desktop für Papa startet.
-3.  **Ausschalten:** Fährt den Laptop sicher per Systemd-Shutdown herunter.
+1.  **Grundlegende Einstellungen:** Spielunabhängige Kernkonfiguration (Lautstärke, Vorbereitung für Mehrkanal-Audio-Geräte und Farbschemata/Montessori-Themes).
+2.  **Moderation:** Ausschließlich Einstellungen zur Moderation. Auswahl zwischen "Gewichteter Zufall (Würfel)" und zukünftiger adaptiver "KI-Steuerung" mit jeweils spezifischen Parametern (Gewichte, Auto-Switch).
+3.  **Spiele (Akkordeon):** Einheitliche Liste aller installierten Lernspiele mit Titel, Aktivitätsstatus-Badge / Sofort-Wechsel-Button und spielspezifischem Einstellungsbereich.
+4.  **Systemeinstellungen:** Sichere Aktionen zur Kiosk-Freigabe (Returncode 42), Neustart und Shutdown.
+5.  **Scrollbar-Ergonomie:** Ausreichend Padding und Margins verhindern ein Überlagern von Bedienelementen durch den vertikalen Scrollbalken.

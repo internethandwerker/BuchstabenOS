@@ -193,23 +193,24 @@
                     BorderBrush="#2E3242"
                     BorderThickness="2"
                     CornerRadius="20"
-                    Padding="32"
-                    Width="740"
-                    MaxHeight="620"
+                    Padding="32,28,16,28"
+                    Width="820"
+                    MaxHeight="700"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
                     IsVisible="{Binding ParentMenu.IsAuthenticated}">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Spacing="24">
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              Padding="0,0,24,0">
+                    <StackPanel Spacing="24" Margin="0,0,6,0">
                         
                         <!-- Header -->
                         <Grid ColumnDefinitions="*,Auto">
                             <StackPanel Grid.Column="0" Spacing="4">
-                                <TextBlock Text="⚙️ BuchstabenOS Einstellungen"
+                                <TextBlock Text="⚙️ BuchstabenOS Eltern-Bereich"
                                            FontSize="24"
                                            FontWeight="Bold"
                                            Foreground="#F5F4EE" />
-                                <TextBlock Text="Konfiguration &amp; Systemverwaltung für Moritz' Laptop"
+                                <TextBlock Text="Konfiguration &amp; Systemverwaltung für Moritz' Lernumgebung"
                                            FontSize="13"
                                            Foreground="#8C90A0" />
                             </StackPanel>
@@ -219,20 +220,44 @@
                                     Background="#2A2C38"
                                     Foreground="#F5F4EE"
                                     CornerRadius="8"
-                                    Padding="12,6" />
+                                    Padding="14,8" />
                         </Grid>
+
+                        <!-- Statusmeldung -->
+                        <Border Background="#1C2E22"
+                                BorderBrush="#2ECC71"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="12,8"
+                                IsVisible="{Binding ParentMenu.StatusNotification.Length}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="ℹ️" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding ParentMenu.StatusNotification}"
+                                           Foreground="#A8F0C0"
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
 
                         <Separator Background="#2E3242" Height="1" />
 
-                        <!-- 1. Audio & Sprachmodus -->
-                        <StackPanel Spacing="12">
-                            <TextBlock Text="🔊 Audio &amp; Sprache"
-                                       FontSize="17"
-                                       FontWeight="Bold"
-                                       Foreground="#FFD166" />
+                        <!-- ========================================================= -->
+                        <!-- 1. GRUNDLEGENDE EINSTELLUNGEN (Spiel-unabhängig)          -->
+                        <!-- ========================================================= -->
+                        <StackPanel Spacing="14">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="🛠️ Grundlegende Einstellungen"
+                                           FontSize="18"
+                                           FontWeight="Bold"
+                                           Foreground="#FFD166" />
+                                <TextBlock Text="Spiel-unabhängige Systemeinstellungen für Audio &amp; Darstellung"
+                                           FontSize="12"
+                                           Foreground="#8C90A0" />
+                            </StackPanel>
 
-                            <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
-                                <TextBlock Grid.Column="0" Text="Lautstärke: " VerticalAlignment="Center" Foreground="#C5C7D0" />
+                            <!-- Lautstärke -->
+                            <Grid ColumnDefinitions="150,*,Auto" VerticalAlignment="Center">
+                                <TextBlock Grid.Column="0" Text="Lautstärke:" VerticalAlignment="Center" Foreground="#C5C7D0" FontWeight="SemiBold" />
                                 <Slider Grid.Column="1"
                                         Minimum="0"
                                         Maximum="100"
@@ -246,178 +271,348 @@
                                            Width="45" />
                             </Grid>
 
-                            <Grid ColumnDefinitions="Auto,*,*" Margin="0,8,0,0">
-                                <TextBlock Grid.Column="0" Text="Sprach-Modus: " VerticalAlignment="Center" Foreground="#C5C7D0" Margin="0,0,16,0" />
-                                <Button Grid.Column="1"
-                                        Content="Lautieren (M, A, P)"
-                                        Command="{Binding ParentMenu.SetSpeechModeCommand}"
-                                        CommandParameter="Phonetic"
-                                        Classes.active="{Binding ParentMenu.IsPhoneticSpeechMode}"
-                                        CornerRadius="8"
-                                        Padding="12,8"
-                                        HorizontalAlignment="Stretch"
-                                        HorizontalContentAlignment="Center"
-                                        Margin="0,0,8,0">
-                                    <Button.Styles>
-                                        <Style Selector="Button.active">
-                                            <Setter Property="Background" Value="#3A7AF0" />
-                                            <Setter Property="Foreground" Value="White" />
-                                        </Style>
-                                    </Button.Styles>
-                                </Button>
-                                <Button Grid.Column="2"
-                                        Content="Alphabet (Em, Ah, Pe)"
-                                        Command="{Binding ParentMenu.SetSpeechModeCommand}"
-                                        CommandParameter="Alphabet"
-                                        Classes.active="{Binding !ParentMenu.IsPhoneticSpeechMode}"
-                                        CornerRadius="8"
-                                        Padding="12,8"
-                                        HorizontalAlignment="Stretch"
-                                        HorizontalContentAlignment="Center"
-                                        Margin="8,0,0,0">
-                                    <Button.Styles>
-                                        <Style Selector="Button.active">
-                                            <Setter Property="Background" Value="#3A7AF0" />
-                                            <Setter Property="Foreground" Value="White" />
-                                        </Style>
-                                    </Button.Styles>
-                                </Button>
+                            <!-- Audio-Ausgabegerät (Ausblick) -->
+                            <Grid ColumnDefinitions="150,*" VerticalAlignment="Center">
+                                <TextBlock Grid.Column="0" Text="Audio-Ausgabe:" VerticalAlignment="Center" Foreground="#C5C7D0" FontWeight="SemiBold" />
+                                <ComboBox Grid.Column="1"
+                                          ItemsSource="{Binding ParentMenu.AvailableAudioDevices}"
+                                          SelectedItem="{Binding ParentMenu.SelectedAudioDevice}"
+                                          HorizontalAlignment="Stretch"
+                                          Background="#121318"
+                                          Foreground="#F5F4EE"
+                                          BorderBrush="#3D4255"
+                                          CornerRadius="8"
+                                          Padding="10,6" />
+                            </Grid>
+
+                            <!-- Design / Farbschema (Ausblick) -->
+                            <Grid ColumnDefinitions="150,*" VerticalAlignment="Center">
+                                <TextBlock Grid.Column="0" Text="Design / Stil:" VerticalAlignment="Center" Foreground="#C5C7D0" FontWeight="SemiBold" />
+                                <ComboBox Grid.Column="1"
+                                          ItemsSource="{Binding ParentMenu.AvailableThemes}"
+                                          SelectedItem="{Binding ParentMenu.SelectedTheme}"
+                                          HorizontalAlignment="Stretch"
+                                          Background="#121318"
+                                          Foreground="#F5F4EE"
+                                          BorderBrush="#3D4255"
+                                          CornerRadius="8"
+                                          Padding="10,6" />
                             </Grid>
                         </StackPanel>
 
                         <Separator Background="#2E3242" Height="1" />
 
-                        <!-- 2. Wörterbuch (Scope pro Spiel) -->
-                        <StackPanel Spacing="12">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <TextBlock Grid.Column="0"
-                                           Text="📚 Wörterbuch (Spiel: Buchstaben-Zauber)"
-                                           FontSize="17"
+                        <!-- ========================================================= -->
+                        <!-- 2. MODERATION (NUR Moderations-Einstellungen)            -->
+                        <!-- ========================================================= -->
+                        <StackPanel Spacing="14">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="🎲 Moderation"
+                                           FontSize="18"
                                            FontWeight="Bold"
                                            Foreground="#FFD166" />
-                                <TextBlock Grid.Column="1"
-                                           Text="{Binding ParentMenu.GameWords.Count, StringFormat='{}{0} Wörter'}"
-                                           Foreground="#8C90A0"
-                                           VerticalAlignment="Center" />
+                                <TextBlock Text="Steuerung von Spielwechseln und kindlicher Aufmerksamkeitsspanne"
+                                           FontSize="12"
+                                           Foreground="#8C90A0" />
+                            </StackPanel>
+
+                            <!-- Strategie-Auswahl -->
+                            <Grid ColumnDefinitions="150,*" VerticalAlignment="Center">
+                                <TextBlock Grid.Column="0" Text="Strategie:" VerticalAlignment="Center" Foreground="#C5C7D0" FontWeight="SemiBold" />
+                                <ComboBox Grid.Column="1"
+                                          ItemsSource="{Binding ParentMenu.AvailableModerationStrategies}"
+                                          SelectedItem="{Binding ParentMenu.SelectedModerationStrategy}"
+                                          HorizontalAlignment="Stretch"
+                                          Background="#121318"
+                                          Foreground="#F5F4EE"
+                                          BorderBrush="#3D4255"
+                                          CornerRadius="8"
+                                          Padding="10,6" />
                             </Grid>
 
-                            <!-- Neues Wort hinzufügen -->
-                            <Grid ColumnDefinitions="*,Auto">
-                                <TextBox Grid.Column="0"
-                                         Text="{Binding ParentMenu.NewWordInput}"
-                                         Watermark="Neues Wort eingeben (z.B. BAGGER, OMA, REX)..."
-                                         Background="#121318"
-                                         Foreground="#F5F4EE"
-                                         BorderBrush="#3D4255"
-                                         CornerRadius="8"
-                                         Padding="10,8"
-                                         Margin="0,0,8,0" />
-                                <Button Grid.Column="1"
-                                        Content="+ Hinzufügen"
-                                        Command="{Binding ParentMenu.AddWordCommand}"
-                                        Background="#2ECC71"
-                                        Foreground="White"
-                                        FontWeight="Bold"
-                                        CornerRadius="8"
-                                        Padding="16,8" />
-                            </Grid>
-
-                            <!-- Statusmeldung -->
-                            <TextBlock Text="{Binding ParentMenu.StatusNotification}"
-                                       Foreground="#2ECC71"
-                                       FontSize="13"
-                                       IsVisible="{Binding ParentMenu.StatusNotification.Length}" />
-
-                            <!-- Liste der Wörter als Tags -->
+                            <!-- Parameter: Zufallswürfel -->
                             <Border Background="#121318"
                                     BorderBrush="#2E3242"
                                     BorderThickness="1"
                                     CornerRadius="10"
-                                    Padding="12"
-                                    MaxHeight="150">
-                                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                    <ItemsControl ItemsSource="{Binding ParentMenu.GameWords}">
-                                        <ItemsControl.ItemsPanel>
-                                            <ItemsPanelTemplate>
-                                                <WrapPanel Orientation="Horizontal" />
-                                            </ItemsPanelTemplate>
-                                        </ItemsControl.ItemsPanel>
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <Border Background="#252834"
-                                                        CornerRadius="6"
-                                                        Padding="8,4"
-                                                        Margin="4">
-                                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                                        <TextBlock Text="{Binding}" Foreground="#F5F4EE" VerticalAlignment="Center" />
-                                                        <Button Content="✕"
-                                                                Command="{Binding $parent[ItemsControl].((vm:MainWindowViewModel)DataContext).ParentMenu.RemoveWordCommand}"
-                                                                CommandParameter="{Binding}"
-                                                                Background="Transparent"
-                                                                Foreground="#FF7B7B"
-                                                                Padding="2,0"
-                                                                FontSize="11" />
-                                                    </StackPanel>
-                                                </Border>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </ScrollViewer>
+                                    Padding="16"
+                                    IsVisible="{Binding ParentMenu.IsDiceModeration}">
+                                <StackPanel Spacing="14">
+                                    <CheckBox IsChecked="{Binding ParentMenu.AutoGameSwitching}"
+                                              Content="Automatischer Spielewechsel aktiv (Rotiert nach Aufmerksamkeitsspanne)"
+                                              Foreground="#F5F4EE"
+                                              FontWeight="SemiBold" />
+
+                                    <TextBlock Text="Aufmerksamkeits-Grenzen: Wechselt nach 2 gelösten Mathe-Aufgaben bzw. 5 erkannten Wörtern (oder 5 Min.)."
+                                               FontSize="12"
+                                               Foreground="#8C90A0" />
+
+                                    <Separator Background="#252834" Height="1" />
+
+                                    <TextBlock Text="🎲 Würfel-Gewichtung bei automatischem Wechsel:"
+                                               FontSize="13"
+                                               FontWeight="SemiBold"
+                                               Foreground="#E5E4DC" />
+
+                                    <Grid ColumnDefinitions="*,*">
+                                        <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                                            <TextBlock Text="{Binding ParentMenu.TypingWeight, StringFormat='Buchstaben-Zauber: {0}%'}" Foreground="#C5C7D0" />
+                                            <Slider Minimum="0" Maximum="100" Value="{Binding ParentMenu.TypingWeight}" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                                            <TextBlock Text="{Binding ParentMenu.MathWeight, StringFormat='Mathe-Addition: {0}%'}" Foreground="#C5C7D0" />
+                                            <Slider Minimum="0" Maximum="100" Value="{Binding ParentMenu.MathWeight}" />
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <Button Content="💾 Moderations-Einstellungen speichern"
+                                            Command="{Binding ParentMenu.SaveModerationSettingsCommand}"
+                                            Background="#2ECC71"
+                                            Foreground="White"
+                                            FontWeight="Bold"
+                                            CornerRadius="8"
+                                            Padding="14,8"
+                                            HorizontalAlignment="Right" />
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Parameter: KI-Adaptive Steuerung (Zukunft / Vorschau) -->
+                            <Border Background="#121318"
+                                    BorderBrush="#3A7AF0"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    Padding="16"
+                                    IsVisible="{Binding !ParentMenu.IsDiceModeration}">
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="🧠 KI-Adaptive Steuerung (In Vorbereitung)"
+                                               FontWeight="Bold"
+                                               Foreground="#85B7FF" />
+                                    <TextBlock Text="Diese Moderations-Implementierung wird das Lerntempo, Fehlerquoten und Ermüdungsanzeichen von Moritz in Echtzeit auswerten und die Spielrunden vollautomatisch anpassen."
+                                               TextWrapping="Wrap"
+                                               FontSize="13"
+                                               Foreground="#A0A5B5" />
+                                </StackPanel>
                             </Border>
                         </StackPanel>
 
                         <Separator Background="#2E3242" Height="1" />
 
-                        <!-- 3. Spiele & Moderation -->
-                        <StackPanel Spacing="16">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <TextBlock Grid.Column="0"
-                                           Text="🎮 Spiele &amp; Moderation"
-                                           FontSize="17"
+                        <!-- ========================================================= -->
+                        <!-- 3. SPIELE (Akkordeon / Expander Liste)                   -->
+                        <!-- ========================================================= -->
+                        <StackPanel Spacing="14">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="🎮 Spiele"
+                                           FontSize="18"
                                            FontWeight="Bold"
                                            Foreground="#FFD166" />
-                                <TextBlock Grid.Column="1"
-                                           Text="{Binding ParentMenu.ActiveGameId, StringFormat='Aktiv: {0}'}"
-                                           Foreground="#8C90A0"
-                                           VerticalAlignment="Center" />
-                            </Grid>
+                                <TextBlock Text="Liste der installierten Lernspiele mit individuellen Einstellungsbereichen"
+                                           FontSize="12"
+                                           Foreground="#8C90A0" />
+                            </StackPanel>
 
-                            <!-- Manuelles Umschalten -->
-                            <Grid ColumnDefinitions="*,*">
-                                <Button Grid.Column="0"
-                                        Content="🔤 Buchstaben-Zauber"
-                                        Command="{Binding ParentMenu.SwitchActiveGameCommand}"
-                                        CommandParameter="free-typing"
-                                        CornerRadius="8"
-                                        Padding="12,10"
-                                        HorizontalAlignment="Stretch"
-                                        HorizontalContentAlignment="Center"
-                                        Margin="0,0,6,0" />
-                                <Button Grid.Column="1"
-                                        Content="➕ Mathe-Zwerg (Addition)"
-                                        Command="{Binding ParentMenu.SwitchActiveGameCommand}"
-                                        CommandParameter="math-addition"
-                                        CornerRadius="8"
-                                        Padding="12,10"
-                                        HorizontalAlignment="Stretch"
-                                        HorizontalContentAlignment="Center"
-                                        Margin="6,0,0,0" />
-                            </Grid>
+                            <!-- SPIEL 1: BUCHSTABEN-ZAUBER (EXPANDER) -->
+                            <Expander IsExpanded="True"
+                                      HorizontalAlignment="Stretch"
+                                      Background="#14161E"
+                                      BorderBrush="#2E3242"
+                                      BorderThickness="1"
+                                      CornerRadius="10">
+                                <Expander.Header>
+                                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,12,0">
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                            <TextBlock Text="🔤 Buchstaben-Zauber"
+                                                       FontSize="15"
+                                                       FontWeight="Bold"
+                                                       Foreground="#F5F4EE"
+                                                       VerticalAlignment="Center" />
+                                            <Border Background="#1E4620"
+                                                    BorderBrush="#2ECC71"
+                                                    BorderThickness="1"
+                                                    CornerRadius="4"
+                                                    Padding="6,2"
+                                                    VerticalAlignment="Center"
+                                                    IsVisible="{Binding ParentMenu.IsFreeTypingActive}">
+                                                <TextBlock Text="Aktiv" Foreground="#2ECC71" FontSize="11" FontWeight="Bold" />
+                                            </Border>
+                                        </StackPanel>
+                                        <Button Grid.Column="1"
+                                                Content="▶️ Jetzt spielen"
+                                                Command="{Binding ParentMenu.SwitchActiveGameCommand}"
+                                                CommandParameter="free-typing"
+                                                IsVisible="{Binding !ParentMenu.IsFreeTypingActive}"
+                                                Background="#3A7AF0"
+                                                Foreground="White"
+                                                FontWeight="SemiBold"
+                                                CornerRadius="6"
+                                                Padding="10,4"
+                                                FontSize="12" />
+                                    </Grid>
+                                </Expander.Header>
 
-                            <!-- Automatischer Spielewechsel Toggle -->
-                            <CheckBox IsChecked="{Binding ParentMenu.AutoGameSwitching}"
-                                      Content="Automatischer Spielewechsel (Aufmerksamkeits-Würfel aktivieren)"
-                                      Foreground="#F5F4EE" />
+                                <StackPanel Spacing="14" Margin="14,8,14,14">
+                                    <!-- Sprachmodus -->
+                                    <TextBlock Text="Sprachausgabe beim Tastendruck:"
+                                               FontWeight="SemiBold"
+                                               Foreground="#C5C7D0" />
+                                    <Grid ColumnDefinitions="*,*">
+                                        <Button Grid.Column="0"
+                                                Content="Lautieren (M, A, P)"
+                                                Command="{Binding ParentMenu.SetSpeechModeCommand}"
+                                                CommandParameter="Phonetic"
+                                                Classes.active="{Binding ParentMenu.IsPhoneticSpeechMode}"
+                                                CornerRadius="8"
+                                                Padding="12,8"
+                                                HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Center"
+                                                Margin="0,0,6,0">
+                                            <Button.Styles>
+                                                <Style Selector="Button.active">
+                                                    <Setter Property="Background" Value="#3A7AF0" />
+                                                    <Setter Property="Foreground" Value="White" />
+                                                </Style>
+                                            </Button.Styles>
+                                        </Button>
+                                        <Button Grid.Column="1"
+                                                Content="Alphabet (Em, Ah, Pe)"
+                                                Command="{Binding ParentMenu.SetSpeechModeCommand}"
+                                                CommandParameter="Alphabet"
+                                                Classes.active="{Binding !ParentMenu.IsPhoneticSpeechMode}"
+                                                CornerRadius="8"
+                                                Padding="12,8"
+                                                HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Center"
+                                                Margin="6,0,0,0">
+                                            <Button.Styles>
+                                                <Style Selector="Button.active">
+                                                    <Setter Property="Background" Value="#3A7AF0" />
+                                                    <Setter Property="Foreground" Value="White" />
+                                                </Style>
+                                            </Button.Styles>
+                                        </Button>
+                                    </Grid>
 
-                            <!-- Mathe-Konfiguration: Rechnen bis -->
-                            <Border Background="#121318" BorderBrush="#2E3242" BorderThickness="1" CornerRadius="10" Padding="14">
-                                <StackPanel Spacing="12">
-                                    <TextBlock Text="➕ Mathespiel: Rechnen bis (Maximales Ergebnis)"
-                                               FontWeight="Bold"
-                                               Foreground="#E5E4DC" />
+                                    <Separator Background="#252834" Height="1" />
+
+                                    <!-- Wörterbuch -->
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Grid.Column="0"
+                                                   Text="📚 Wörterbuch (Erkannte Wörter)"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#C5C7D0" />
+                                        <TextBlock Grid.Column="1"
+                                                   Text="{Binding ParentMenu.GameWords.Count, StringFormat='{}{0} Wörter'}"
+                                                   Foreground="#8C90A0"
+                                                   FontSize="12"
+                                                   VerticalAlignment="Center" />
+                                    </Grid>
+
+                                    <!-- Neues Wort hinzufügen -->
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBox Grid.Column="0"
+                                                 Text="{Binding ParentMenu.NewWordInput}"
+                                                 Watermark="Neues Wort eingeben (z.B. BAGGER, OMA, REX)..."
+                                                 Background="#121318"
+                                                 Foreground="#F5F4EE"
+                                                 BorderBrush="#3D4255"
+                                                 CornerRadius="8"
+                                                 Padding="10,8"
+                                                 Margin="0,0,8,0" />
+                                        <Button Grid.Column="1"
+                                                Content="+ Hinzufügen"
+                                                Command="{Binding ParentMenu.AddWordCommand}"
+                                                Background="#2ECC71"
+                                                Foreground="White"
+                                                FontWeight="Bold"
+                                                CornerRadius="8"
+                                                Padding="16,8" />
+                                    </Grid>
+
+                                    <!-- Wortliste als Tags -->
+                                    <Border Background="#121318"
+                                            BorderBrush="#252834"
+                                            BorderThickness="1"
+                                            CornerRadius="8"
+                                            Padding="10"
+                                            MaxHeight="140">
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                            <ItemsControl ItemsSource="{Binding ParentMenu.GameWords}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <WrapPanel Orientation="Horizontal" />
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Background="#222530"
+                                                                CornerRadius="6"
+                                                                Padding="8,4"
+                                                                Margin="3">
+                                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                                <TextBlock Text="{Binding}" Foreground="#F5F4EE" VerticalAlignment="Center" />
+                                                                <Button Content="✕"
+                                                                        Command="{Binding $parent[ItemsControl].((vm:MainWindowViewModel)DataContext).ParentMenu.RemoveWordCommand}"
+                                                                        CommandParameter="{Binding}"
+                                                                        Background="Transparent"
+                                                                        Foreground="#FF7B7B"
+                                                                        Padding="2,0"
+                                                                        FontSize="11" />
+                                                            </StackPanel>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </ScrollViewer>
+                                    </Border>
+                                </StackPanel>
+                            </Expander>
+
+                            <!-- SPIEL 2: MATHESPIEL ADDITION (EXPANDER) -->
+                            <Expander IsExpanded="True"
+                                      HorizontalAlignment="Stretch"
+                                      Background="#14161E"
+                                      BorderBrush="#2E3242"
+                                      BorderThickness="1"
+                                      CornerRadius="10">
+                                <Expander.Header>
+                                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,12,0">
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                            <TextBlock Text="➕ Mathespiel Addition"
+                                                       FontSize="15"
+                                                       FontWeight="Bold"
+                                                       Foreground="#F5F4EE"
+                                                       VerticalAlignment="Center" />
+                                            <Border Background="#1E4620"
+                                                    BorderBrush="#2ECC71"
+                                                    BorderThickness="1"
+                                                    CornerRadius="4"
+                                                    Padding="6,2"
+                                                    VerticalAlignment="Center"
+                                                    IsVisible="{Binding ParentMenu.IsMathAdditionActive}">
+                                                <TextBlock Text="Aktiv" Foreground="#2ECC71" FontSize="11" FontWeight="Bold" />
+                                            </Border>
+                                        </StackPanel>
+                                        <Button Grid.Column="1"
+                                                Content="▶️ Jetzt spielen"
+                                                Command="{Binding ParentMenu.SwitchActiveGameCommand}"
+                                                CommandParameter="math-addition"
+                                                IsVisible="{Binding !ParentMenu.IsMathAdditionActive}"
+                                                Background="#3A7AF0"
+                                                Foreground="White"
+                                                FontWeight="SemiBold"
+                                                CornerRadius="6"
+                                                Padding="10,4"
+                                                FontSize="12" />
+                                    </Grid>
+                                </Expander.Header>
+
+                                <StackPanel Spacing="14" Margin="14,8,14,14">
+                                    <TextBlock Text="Zahlenraum-Einstellung:"
+                                               FontWeight="SemiBold"
+                                               Foreground="#C5C7D0" />
 
                                     <Grid ColumnDefinitions="Auto,*,Auto">
-                                        <TextBlock Grid.Column="0" Text="Max. Summe: " Foreground="#8C90A0" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="0" Text="Rechnen bis: " Foreground="#8C90A0" VerticalAlignment="Center" />
                                         <Slider Grid.Column="1"
                                                 Minimum="2"
                                                 Maximum="20"
@@ -431,27 +626,8 @@
                                                    VerticalAlignment="Center" />
                                     </Grid>
 
-                                    <Separator Background="#252834" Height="1" />
-
-                                    <!-- Gewichtung -->
-                                    <TextBlock Text="🎲 Würfel-Gewichtung bei automatischem Wechsel:"
-                                               FontSize="13"
-                                               Foreground="#8C90A0" />
-
-                                    <Grid ColumnDefinitions="*,*">
-                                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                            <TextBlock Text="{Binding ParentMenu.TypingWeight, StringFormat='Buchstaben: {0}%'}" Foreground="#C5C7D0" />
-                                            <Slider Minimum="0" Maximum="100" Value="{Binding ParentMenu.TypingWeight}" />
-                                        </StackPanel>
-                                        <StackPanel Grid.Column="1" Margin="8,0,0,0">
-                                            <TextBlock Text="{Binding ParentMenu.MathWeight, StringFormat='Mathe: {0}%'}" Foreground="#C5C7D0" />
-                                            <Slider Minimum="0" Maximum="100" Value="{Binding ParentMenu.MathWeight}" />
-                                        </StackPanel>
-                                    </Grid>
-
-                                    <!-- Einstellungen speichern Button -->
-                                    <Button Content="💾 Spiele-Einstellungen speichern"
-                                            Command="{Binding ParentMenu.SaveGameSettingsCommand}"
+                                    <Button Content="💾 Mathe-Einstellungen speichern"
+                                            Command="{Binding ParentMenu.SaveMathSettingsCommand}"
                                             Background="#2ECC71"
                                             Foreground="White"
                                             FontWeight="Bold"
@@ -459,17 +635,24 @@
                                             Padding="14,8"
                                             HorizontalAlignment="Right" />
                                 </StackPanel>
-                            </Border>
+                            </Expander>
                         </StackPanel>
 
                         <Separator Background="#2E3242" Height="1" />
 
-                        <!-- 4. Systemaktionen -->
+                        <!-- ========================================================= -->
+                        <!-- 4. SYSTEMEINSTELLUNGEN (Linux-Systemaktionen)             -->
+                        <!-- ========================================================= -->
                         <StackPanel Spacing="12">
-                            <TextBlock Text="💻 System-Steuerung (Linux)"
-                                       FontSize="17"
-                                       FontWeight="Bold"
-                                       Foreground="#FFD166" />
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="💻 Systemeinstellungen (Linux)"
+                                           FontSize="18"
+                                           FontWeight="Bold"
+                                           Foreground="#FFD166" />
+                                <TextBlock Text="Systemsteuerungs-Aktionen für Moritz' Laptop"
+                                           FontSize="12"
+                                           Foreground="#8C90A0" />
+                            </StackPanel>
 
                             <Grid ColumnDefinitions="*,*,*">
                                 <Button Grid.Column="0"

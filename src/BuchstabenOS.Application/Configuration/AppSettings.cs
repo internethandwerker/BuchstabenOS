@@ -15,7 +15,12 @@ public class AppSettings
     public bool AutoShutdownOnInactivity { get; set; } = false;
     public int InactivityMinutes { get; set; } = 15;
 
+    // Grundlegende Einstellungen (Zukunftssicher)
+    public string AudioDevice { get; set; } = "default";
+    public string Theme { get; set; } = "midnight";
+
     // Spiele-Moderation & Gewichte
+    public string ModerationStrategy { get; set; } = "dice";
     public bool AutoGameSwitching { get; set; } = true;
     public Dictionary<string, int> GameWeights { get; set; } = new(StringComparer.OrdinalIgnoreCase)
     {

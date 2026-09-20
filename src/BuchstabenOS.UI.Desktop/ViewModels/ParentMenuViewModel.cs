@@ -28,23 +28,49 @@ public partial class ParentMenuViewModel : ViewModelBase
     private string _pinErrorMessage = string.Empty;
 
     [ObservableProperty]
-    private int _volume = 80;
-
-    [ObservableProperty]
-    private bool _isPhoneticSpeechMode = true;
-
-    [ObservableProperty]
-    private string _newWordInput = string.Empty;
-
-    [ObservableProperty]
     private string _statusNotification = string.Empty;
 
-    // Spiele-Konfiguration & Moderation
+    // =========================================================
+    // 1. GRUNDLEGENDE EINSTELLUNGEN (Spiel-unabhängig)
+    // =========================================================
     [ObservableProperty]
-    private bool _autoGameSwitching = true;
+    private int _volume = 80;
+
+    public ObservableCollection<string> AvailableAudioDevices { get; } = new()
+    {
+        "Standard (System-Standard PipeWire / PulseAudio)"
+    };
 
     [ObservableProperty]
-    private int _mathMaxSum = 10;
+    private string _selectedAudioDevice = "Standard (System-Standard PipeWire / PulseAudio)";
+
+    public ObservableCollection<string> AvailableThemes { get; } = new()
+    {
+        "Midnight Chalkboard (Dunkel / Standard)",
+        "Montessori Warm (Geplant)",
+        "Hoher Kontrast (Geplant)"
+    };
+
+    [ObservableProperty]
+    private string _selectedTheme = "Midnight Chalkboard (Dunkel / Standard)";
+
+    // =========================================================
+    // 2. MODERATION (Strategie & Rotation)
+    // =========================================================
+    public ObservableCollection<string> AvailableModerationStrategies { get; } = new()
+    {
+        "Gewichteter Zufall (Würfel)",
+        "KI-Adaptive Steuerung (In Vorbereitung)"
+    };
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsDiceModeration))]
+    private string _selectedModerationStrategy = "Gewichteter Zufall (Würfel)";
+
+    public bool IsDiceModeration => SelectedModerationStrategy.Contains("Würfel");
+
+    [ObservableProperty]
+    private bool _autoGameSwitching = true;
 
     [ObservableProperty]
     private int _mathWeight = 50;
@@ -52,10 +78,29 @@ public partial class ParentMenuViewModel : ViewModelBase
     [ObservableProperty]
     private int _typingWeight = 50;
 
+    // =========================================================
+    // 3. SPIELE (Aktiver Status & Spezifische Einstellungen)
+    // =========================================================
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsFreeTypingActive))]
+    [NotifyPropertyChangedFor(nameof(IsMathAdditionActive))]
     private string _activeGameId = "free-typing";
 
+    public bool IsFreeTypingActive => ActiveGameId == "free-typing";
+    public bool IsMathAdditionActive => ActiveGameId == "math-addition";
+
+    // Buchstabenzauber-spezifisch:
+    [ObservableProperty]
+    private bool _isPhoneticSpeechMode = true;
+
+    [ObservableProperty]
+    private string _newWordInput = string.Empty;
+
     public ObservableCollection<string> GameWords { get; } = new();
+
+    // Mathe-Addition-spezifisch:
+    [ObservableProperty]
+    private int _mathMaxSum = 10;
 
     public event Action<SpeechMode>? SpeechModeChanged;
     public event Action<string>? GameSwitchRequested;
@@ -83,6 +128,10 @@ public partial class ParentMenuViewModel : ViewModelBase
         AutoGameSwitching = _settings.AutoGameSwitching;
         MathMaxSum = _settings.AdditionMaxSum;
         ActiveGameId = _settings.ActiveGameId;
+
+        SelectedModerationStrategy = _settings.ModerationStrategy == "ai"
+            ? "KI-Adaptive Steuerung (In Vorbereitung)"
+            : "Gewichteter Zufall (Würfel)";
 
         if (_settings.GameWeights.TryGetValue("math-addition", out int mw))
         {
@@ -121,6 +170,58 @@ public partial class ParentMenuViewModel : ViewModelBase
         }
     }
 
+    // --- Grundlegende Einstellungen Commands ---
+    [RelayCommand]
+    public void ChangeVolume(int delta)
+    {
+        Volume = Math.Clamp(Volume + delta, 0, 100);
+        _settings.VolumePercent = Volume;
+        _systemControl.SetSystemVolume(Volume);
+        _ = SaveSettingsAsync();
+    }
+
+    partial void OnVolumeChanged(int value)
+    {
+        if (_settings != null)
+        {
+            _settings.VolumePercent = value;
+            _systemControl.SetSystemVolume(value);
+        }
+    }
+
+    // --- Spiele: Umschalten ---
+    [RelayCommand]
+    public void SwitchActiveGame(string gameId)
+    {
+        ActiveGameId = gameId;
+        _settings.ActiveGameId = gameId;
+        GameSwitchRequested?.Invoke(gameId);
+        StatusNotification = gameId == "math-addition"
+            ? "Spiel gewechselt: Mathe-Addition ist jetzt aktiv!"
+            : "Spiel gewechselt: Buchstaben-Zauber ist jetzt aktiv!";
+        _ = SaveSettingsAsync();
+    }
+
+    // --- Buchstabenzauber-Einstellungen ---
+    [RelayCommand]
+    public void SetSpeechMode(string modeName)
+    {
+        if (modeName == "Phonetic")
+        {
+            IsPhoneticSpeechMode = true;
+            _settings.SpeechMode = SpeechMode.Phonetic;
+            SpeechModeChanged?.Invoke(SpeechMode.Phonetic);
+        }
+        else
+        {
+            IsPhoneticSpeechMode = false;
+            _settings.SpeechMode = SpeechMode.Alphabet;
+            SpeechModeChanged?.Invoke(SpeechMode.Alphabet);
+        }
+        StatusNotification = IsPhoneticSpeechMode ? "Lautieren aktiviert!" : "Alphabet-Modus aktiviert!";
+        _ = SaveSettingsAsync();
+    }
+
     [RelayCommand]
     public async Task AddWordAsync()
     {
@@ -146,53 +247,43 @@ public partial class ParentMenuViewModel : ViewModelBase
         }
     }
 
+    // --- Moderation speichern ---
     [RelayCommand]
-    public void SetSpeechMode(string modeName)
+    public async Task SaveModerationSettingsAsync()
     {
-        if (modeName == "Phonetic")
-        {
-            IsPhoneticSpeechMode = true;
-            _settings.SpeechMode = SpeechMode.Phonetic;
-            SpeechModeChanged?.Invoke(SpeechMode.Phonetic);
-        }
-        else
-        {
-            IsPhoneticSpeechMode = false;
-            _settings.SpeechMode = SpeechMode.Alphabet;
-            SpeechModeChanged?.Invoke(SpeechMode.Alphabet);
-        }
-        _ = SaveSettingsAsync();
+        _settings.AutoGameSwitching = AutoGameSwitching;
+        _settings.ModerationStrategy = SelectedModerationStrategy.Contains("KI") ? "ai" : "dice";
+        _settings.GameWeights["math-addition"] = MathWeight;
+        _settings.GameWeights["free-typing"] = TypingWeight;
+
+        await SaveSettingsAsync();
+        StatusNotification = "Moderations-Einstellungen gespeichert!";
+        SettingsUpdated?.Invoke(_settings);
     }
 
+    // --- Mathe-Einstellungen speichern ---
     [RelayCommand]
-    public void ChangeVolume(int delta)
+    public async Task SaveMathSettingsAsync()
     {
-        Volume = Math.Clamp(Volume + delta, 0, 100);
-        _settings.VolumePercent = Volume;
-        _systemControl.SetSystemVolume(Volume);
-        _ = SaveSettingsAsync();
+        _settings.AdditionMaxSum = MathMaxSum;
+
+        await SaveSettingsAsync();
+        StatusNotification = $"Mathespiel: Rechnen bis {MathMaxSum} gespeichert!";
+        SettingsUpdated?.Invoke(_settings);
     }
 
-    [RelayCommand]
-    public void SwitchActiveGame(string gameId)
-    {
-        ActiveGameId = gameId;
-        _settings.ActiveGameId = gameId;
-        GameSwitchRequested?.Invoke(gameId);
-        StatusNotification = gameId == "math-addition" ? "Mathe-Addition aktiviert!" : "Buchstaben-Zauber aktiviert!";
-        _ = SaveSettingsAsync();
-    }
-
+    // --- Alle Spiele-Einstellungen speichern ---
     [RelayCommand]
     public async Task SaveGameSettingsAsync()
     {
         _settings.AutoGameSwitching = AutoGameSwitching;
+        _settings.ModerationStrategy = SelectedModerationStrategy.Contains("KI") ? "ai" : "dice";
         _settings.AdditionMaxSum = MathMaxSum;
         _settings.GameWeights["math-addition"] = MathWeight;
         _settings.GameWeights["free-typing"] = TypingWeight;
 
         await SaveSettingsAsync();
-        StatusNotification = "Spiele-Einstellungen gespeichert!";
+        StatusNotification = "Einstellungen gespeichert!";
         SettingsUpdated?.Invoke(_settings);
     }
 
@@ -215,6 +306,7 @@ public partial class ParentMenuViewModel : ViewModelBase
         _onCloseRequested.Invoke();
     }
 
+    // --- Linux Systemeinstellungen ---
     [RelayCommand]
     public void ExitToDesktop()
     {
