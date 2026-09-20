@@ -16,6 +16,11 @@ namespace BuchstabenOS.UI.Desktop.ViewModels;
 /// </summary>
 public record HistoryLineItem(string Text, double Opacity, double FontSize);
 
+/// <summary>
+/// Modelliert eine einzelne Buchstabenkarte innerhalb einer Wortvorlage (Kontur vs. Ausgefüllt).
+/// </summary>
+public record TemplateLetterItem(char Letter, bool IsFilled, bool IsCurrentTarget, bool IsWrong);
+
 public partial class MainWindowViewModel : ViewModelBase
 {
     private readonly GameCoordinator _gameCoordinator;
@@ -41,6 +46,14 @@ public partial class MainWindowViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _childHint = "Tippe etwas auf der Tastatur!";
+
+    [ObservableProperty]
+    private bool _isTemplateChallengeActive;
+
+    [ObservableProperty]
+    private string? _templateTargetWord;
+
+    public ObservableCollection<TemplateLetterItem> TemplateLetters { get; } = new();
 
     public ObservableCollection<HistoryLineItem> FloatingHistoryLines { get; } = new();
 
@@ -189,7 +202,31 @@ public partial class MainWindowViewModel : ViewModelBase
             FloatingHistoryLines.Add(new HistoryLineItem(completed[i], opacity, lineSize));
         }
 
-        if (string.IsNullOrEmpty(DisplayText) && count == 0)
+        IsTemplateChallengeActive = _activeRenderableGame.IsTemplateChallengeActive;
+        TemplateTargetWord = _activeRenderableGame.TemplateTargetWord;
+
+        TemplateLetters.Clear();
+        if (IsTemplateChallengeActive && !string.IsNullOrEmpty(TemplateTargetWord))
+        {
+            int progress = _activeRenderableGame.TemplateProgressIndex;
+            bool isMistake = _activeRenderableGame.IsTemplateMistake;
+
+            for (int i = 0; i < TemplateTargetWord.Length; i++)
+            {
+                char c = TemplateTargetWord[i];
+                bool isFilled = i < progress;
+                bool isCurrent = i == progress;
+                bool isWrong = isCurrent && isMistake;
+
+                TemplateLetters.Add(new TemplateLetterItem(c, isFilled, isCurrent, isWrong));
+            }
+        }
+
+        if (string.IsNullOrEmpty(DisplayText) && count == 0 && !IsTemplateChallengeActive)
+        {
+            ChildHint = _activeRenderableGame.HintText;
+        }
+        else if (IsTemplateChallengeActive)
         {
             ChildHint = _activeRenderableGame.HintText;
         }
@@ -263,6 +300,7 @@ public partial class MainWindowViewModel : ViewModelBase
                     break;
 
                 case MathTaskFailedEvent:
+                case WordTemplateMistakeEvent:
                     TriggerWrongFeedback();
                     break;
 

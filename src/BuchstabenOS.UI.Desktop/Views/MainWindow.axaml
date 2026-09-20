@@ -43,22 +43,29 @@
             <!-- BILDSCHIRMMITTE: Die aktive Schreibzeile in voller Pracht -->
             <Grid Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center">
                 
-                <!-- Sanfter Hinweis für den Start -->
+                <!-- Sanfter Hinweis für den Start (nur sichtbar wenn weder Text noch Vorlage aktiv) -->
                 <TextBlock Text="{Binding ChildHint}"
                            FontSize="34"
                            Foreground="#424652"
                            FontWeight="Medium"
                            HorizontalAlignment="Center"
-                           VerticalAlignment="Center"
-                           IsVisible="{Binding !DisplayText.Length}" />
+                           VerticalAlignment="Center">
+                    <TextBlock.IsVisible>
+                        <MultiBinding Converter="{x:Static BoolConverters.And}">
+                            <Binding Path="!DisplayText.Length" />
+                            <Binding Path="!IsTemplateChallengeActive" />
+                        </MultiBinding>
+                    </TextBlock.IsVisible>
+                </TextBlock>
 
-                <!-- Die getippten Buchstaben / Matheaufgabe in der Bildschirmmitte -->
+                <!-- Die getippten Buchstaben / Matheaufgabe im freien Modus -->
                 <TextBlock Text="{Binding DisplayText}"
                            FontSize="{Binding FontSize}"
                            FontWeight="Bold"
                            TextAlignment="Center"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center"
+                           IsVisible="{Binding !IsTemplateChallengeActive}"
                            Classes.celebrating="{Binding IsWordCelebrationActive}"
                            Classes.wrong="{Binding IsWrongFeedbackActive}">
                     <TextBlock.Styles>
@@ -73,6 +80,101 @@
                         </Style>
                     </TextBlock.Styles>
                 </TextBlock>
+
+                <!-- INTERAKTIVE WORTVORLAGE (Lern-Impuls: Kontur vs. Ausgefüllt) -->
+                <StackPanel Spacing="24"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            IsVisible="{Binding IsTemplateChallengeActive}">
+
+                    <!-- Kleiner erklärender Hinweis über den Karten -->
+                    <Border Background="#1C1E2A"
+                            BorderBrush="#2F3348"
+                            BorderThickness="1"
+                            CornerRadius="20"
+                            Padding="18,7"
+                            HorizontalAlignment="Center">
+                        <TextBlock Text="✨ Zauberwort-Aufgabe: Tippe die Buchstaben ab (Leertaste = Überspringen)"
+                                   FontSize="15"
+                                   FontWeight="SemiBold"
+                                   Foreground="#9BA0B8" />
+                    </Border>
+
+                    <!-- Buchstabenkarten-Reihe -->
+                    <ItemsControl ItemsSource="{Binding TemplateLetters}"
+                                 HorizontalAlignment="Center"
+                                 VerticalAlignment="Center">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" Spacing="16" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:TemplateLetterItem">
+                                <Border CornerRadius="20"
+                                        MinWidth="105" MinHeight="135"
+                                        Padding="16,8"
+                                        BorderThickness="3.5"
+                                        Classes.filled="{Binding IsFilled}"
+                                        Classes.current="{Binding IsCurrentTarget}"
+                                        Classes.wrong="{Binding IsWrong}"
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center">
+                                    <Border.Styles>
+                                        <!-- 1. Kontur / Unausgefüllt (Geister-Buchstabe) -->
+                                        <Style Selector="Border">
+                                            <Setter Property="Background" Value="#13141C" />
+                                            <Setter Property="BorderBrush" Value="#2F3346" />
+                                        </Style>
+                                        <Style Selector="Border TextBlock">
+                                            <Setter Property="Foreground" Value="#4A4F65" />
+                                            <Setter Property="Opacity" Value="0.4" />
+                                        </Style>
+
+                                        <!-- 2. Aktueller Zielfokus (Hier bist du!) -->
+                                        <Style Selector="Border.current">
+                                            <Setter Property="Background" Value="#1A2033" />
+                                            <Setter Property="BorderBrush" Value="#4D79FF" />
+                                        </Style>
+                                        <Style Selector="Border.current TextBlock">
+                                            <Setter Property="Foreground" Value="#7FA6FF" />
+                                            <Setter Property="Opacity" Value="0.8" />
+                                        </Style>
+
+                                        <!-- 3. Ausgefüllt / Richtig getippt (Leuchtendes Gold / Weiß) -->
+                                        <Style Selector="Border.filled">
+                                            <Setter Property="Background" Value="#2D2513" />
+                                            <Setter Property="BorderBrush" Value="#FFD166" />
+                                        </Style>
+                                        <Style Selector="Border.filled TextBlock">
+                                            <Setter Property="Foreground" Value="#FFD166" />
+                                            <Setter Property="Opacity" Value="1.0" />
+                                        </Style>
+
+                                        <!-- 4. Fehleingabe (Rotes Warnleuchten) -->
+                                        <Style Selector="Border.wrong">
+                                            <Setter Property="Background" Value="#381515" />
+                                            <Setter Property="BorderBrush" Value="#FF5C5C" />
+                                        </Style>
+                                        <Style Selector="Border.wrong TextBlock">
+                                            <Setter Property="Foreground" Value="#FF8888" />
+                                            <Setter Property="Opacity" Value="1.0" />
+                                        </Style>
+                                    </Border.Styles>
+
+                                    <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Letter}"
+                                                   FontSize="80"
+                                                   FontWeight="ExtraBold"
+                                                   TextAlignment="Center"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
             </Grid>
 
             <!-- UNTERER BEREICH: Wort- / Mathe-Feier-Banner & Falsch-Feedback -->
@@ -569,6 +671,53 @@
                                             </ItemsControl>
                                         </ScrollViewer>
                                     </Border>
+
+                                    <Separator Background="#252834" Height="1" />
+
+                                    <!-- Wortvorlagen (Lern-Impulse) Einstellungen -->
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel Grid.Column="0" Spacing="2">
+                                            <TextBlock Text="✨ Wortvorlagen (Lern-Impulse)"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#C5C7D0" />
+                                            <TextBlock Text="Blendet in unregelmäßigen Abständen Wort-Konturen zum Nach-Tippen ein"
+                                                       FontSize="11"
+                                                       Foreground="#8C90A0" />
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1"
+                                                      IsChecked="{Binding ParentMenu.WordTemplatesEnabled}"
+                                                      OnContent="An"
+                                                      OffContent="Aus" />
+                                    </Grid>
+
+                                    <!-- Häufigkeit der Einblendung (wenn aktiv) -->
+                                    <StackPanel Spacing="6" IsVisible="{Binding ParentMenu.WordTemplatesEnabled}">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBlock Grid.Column="0"
+                                                       Text="Häufigkeit der Einblendungen:"
+                                                       FontSize="12"
+                                                       Foreground="#A5A8B8" />
+                                            <TextBlock Grid.Column="1"
+                                                       Text="{Binding ParentMenu.WordTemplateInterval, StringFormat='{}ca. alle {0} Tasten'}"
+                                                       FontSize="12"
+                                                       FontWeight="Bold"
+                                                       Foreground="#FFD166" />
+                                        </Grid>
+                                        <Slider Minimum="10"
+                                                Maximum="50"
+                                                TickFrequency="5"
+                                                IsSnapToTickEnabled="True"
+                                                Value="{Binding ParentMenu.WordTemplateInterval}" />
+                                    </StackPanel>
+
+                                    <Button Content="💾 Buchstabenzauber-Einstellungen speichern"
+                                            Command="{Binding ParentMenu.SaveTypingSettingsCommand}"
+                                            Background="#2A2C38"
+                                            Foreground="#FFD166"
+                                            FontWeight="SemiBold"
+                                            CornerRadius="8"
+                                            Padding="14,8"
+                                            HorizontalAlignment="Right" />
                                 </StackPanel>
                             </Expander>
 

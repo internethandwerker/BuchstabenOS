@@ -94,6 +94,12 @@ public partial class ParentMenuViewModel : ViewModelBase
 
     public ObservableCollection<string> GameWords { get; } = new();
 
+    [ObservableProperty]
+    private bool _wordTemplatesEnabled = true;
+
+    [ObservableProperty]
+    private int _wordTemplateInterval = 25;
+
     // Mathe-Addition-spezifisch:
     [ObservableProperty]
     private int _mathMaxSum = 10;
@@ -183,7 +189,11 @@ public partial class ParentMenuViewModel : ViewModelBase
             TypingWeight = tw;
         }
 
+        WordTemplatesEnabled = _settings.WordTemplatesEnabled;
+        WordTemplateInterval = _settings.WordTemplateInterval;
+
         await LoadWordsAsync();
+        SettingsUpdated?.Invoke(_settings);
     }
 
     public void ResetState()
@@ -316,6 +326,18 @@ public partial class ParentMenuViewModel : ViewModelBase
         SettingsUpdated?.Invoke(_settings);
     }
 
+    // --- Buchstabenzauber-Einstellungen speichern ---
+    [RelayCommand]
+    public async Task SaveTypingSettingsAsync()
+    {
+        _settings.WordTemplatesEnabled = WordTemplatesEnabled;
+        _settings.WordTemplateInterval = WordTemplateInterval;
+
+        await SaveSettingsAsync();
+        StatusNotification = "Buchstaben-Zauber Einstellungen gespeichert!";
+        SettingsUpdated?.Invoke(_settings);
+    }
+
     // --- Alle Spiele-Einstellungen speichern ---
     [RelayCommand]
     public async Task SaveGameSettingsAsync()
@@ -323,6 +345,8 @@ public partial class ParentMenuViewModel : ViewModelBase
         _settings.AutoGameSwitching = AutoGameSwitching;
         _settings.ModerationStrategy = SelectedModerationStrategy.Contains("KI") ? "ai" : "dice";
         _settings.AdditionMaxSum = MathMaxSum;
+        _settings.WordTemplatesEnabled = WordTemplatesEnabled;
+        _settings.WordTemplateInterval = WordTemplateInterval;
         _settings.GameWeights["math-addition"] = MathWeight;
         _settings.GameWeights["free-typing"] = TypingWeight;
 

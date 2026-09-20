@@ -19,6 +19,18 @@ public class WordDetector
     private readonly HashSet<string> _knownWords = new(StringComparer.OrdinalIgnoreCase);
 
     public int WordCount => _knownWords.Count;
+    public IReadOnlyCollection<string> KnownWords => _knownWords;
+
+    /// <summary>
+    /// Liefert ein zufälliges Wort aus dem Wörterbuch (z. B. für Wortvorlagen).
+    /// </summary>
+    public string? GetRandomWord(Random? random = null)
+    {
+        if (_knownWords.Count == 0) return null;
+        var list = _knownWords.ToList();
+        var rnd = random ?? Random.Shared;
+        return list[rnd.Next(list.Count)];
+    }
 
     public WordDetector(IEnumerable<string>? initialWords = null)
     {

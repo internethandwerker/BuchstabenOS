@@ -163,6 +163,33 @@ public class GameCoordinator : IGameContext
                 await _ttsEngine.SpeakWordAsync(failedEvent.SpokenEncouragement);
                 break;
 
+            case WordTemplateChallengeStartedEvent templateStarted:
+                // Vorlage erscheint: Freundliche Aufforderung über die Audio-Queue
+                await _ttsEngine.SpeakWordAsync(templateStarted.SpokenPrompt);
+                break;
+
+            case WordTemplateLetterMatchedEvent matchedLetter:
+                // Buchstabe getroffen: Sofortigen phonetischen Laut abspielen
+                await _audioPlayer.PlayLetterAsync(matchedLetter.Letter, CurrentSpeechMode);
+                break;
+
+            case WordTemplateMistakeEvent:
+                // Falsche Taste: Kurzer sanfter Fehlerton
+                await _audioPlayer.PlayJingleAsync("wrong");
+                break;
+
+            case WordTemplateChallengeCompletedEvent completedTemplate:
+                // Vorlage gemeistert! Jingle + Lob
+                await _audioPlayer.PlayJingleAsync("word_success");
+                await _ttsEngine.SpeakWordAsync($"Klasse! Du hast {completedTemplate.TargetWord} gezaubert!");
+                break;
+
+            case WordTemplateChallengeSkippedEvent:
+                // Kind überspringt per Leertaste: Liebevolles Quittieren ohne Druck
+                int skipIdx = Random.Shared.Next(FreeTypingGameModule.SkipPhrases.Length);
+                await _ttsEngine.SpeakWordAsync(FreeTypingGameModule.SkipPhrases[skipIdx]);
+                break;
+
             case GameRoundCompletedEvent roundEv when _moderator != null:
                 // Prüfe Aufmerksamkeitsspanne für automatischen Spielwechsel
                 var score = _activeGame?.GetScore() ?? KnowledgeScore.Empty;

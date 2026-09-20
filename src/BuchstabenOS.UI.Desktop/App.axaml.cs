@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
@@ -141,6 +142,13 @@ public partial class App : Avalonia.Application
 
                 var additionGame = sp.GetRequiredService<AdditionGameModule>();
                 additionGame.MaxSum = updatedSettings.AdditionMaxSum;
+
+                var freeTypingGame = sp.GetRequiredService<FreeTypingGameModule>();
+                freeTypingGame.ApplyConfiguration(new Dictionary<string, object>
+                {
+                    ["WordTemplatesEnabled"] = updatedSettings.WordTemplatesEnabled,
+                    ["WordTemplateInterval"] = updatedSettings.WordTemplateInterval
+                });
             };
 
             return parentVm;

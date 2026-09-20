@@ -34,4 +34,6 @@ public class AppSettings
 
     // Spezifische Spiele-Konfigurationen
     public int AdditionMaxSum { get; set; } = 10; // Default: Rechnen bis 10
+    public bool WordTemplatesEnabled { get; set; } = true;
+    public int WordTemplateInterval { get; set; } = 25;
 }

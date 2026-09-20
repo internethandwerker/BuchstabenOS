@@ -47,3 +47,44 @@ public record ParentMenuTriggeredEvent(DateTime OccurredOn) : IDomainEvent
 {
     public ParentMenuTriggeredEvent() : this(DateTime.UtcNow) { }
 }
+
+/// <summary>
+/// Wird ausgelöst, wenn eine interaktive Wortvorlage (Lern-Impuls) auf der Bühne erscheint.
+/// </summary>
+public record WordTemplateChallengeStartedEvent(string TargetWord, string SpokenPrompt, DateTime OccurredOn) : IDomainEvent
+{
+    public WordTemplateChallengeStartedEvent(string targetWord, string spokenPrompt) : this(targetWord, spokenPrompt, DateTime.UtcNow) { }
+}
+
+/// <summary>
+/// Wird ausgelöst, wenn ein Buchstabe der Wortvorlage korrekt eingetippt wurde.
+/// </summary>
+public record WordTemplateLetterMatchedEvent(string TargetWord, int MatchedIndex, char Letter, DateTime OccurredOn) : IDomainEvent
+{
+    public WordTemplateLetterMatchedEvent(string targetWord, int matchedIndex, char letter) : this(targetWord, matchedIndex, letter, DateTime.UtcNow) { }
+}
+
+/// <summary>
+/// Wird ausgelöst, wenn eine Taste gedrückt wurde, die nicht zum nächsten Buchstaben der Vorlage passt.
+/// </summary>
+public record WordTemplateMistakeEvent(string TargetWord, int ExpectedIndex, char ActualLetter, DateTime OccurredOn) : IDomainEvent
+{
+    public WordTemplateMistakeEvent(string targetWord, int expectedIndex, char actualLetter) : this(targetWord, expectedIndex, actualLetter, DateTime.UtcNow) { }
+}
+
+/// <summary>
+/// Wird ausgelöst, wenn alle Buchstaben der Wortvorlage erfolgreich abgetippt wurden.
+/// </summary>
+public record WordTemplateChallengeCompletedEvent(string TargetWord, DateTime OccurredOn) : IDomainEvent
+{
+    public WordTemplateChallengeCompletedEvent(string targetWord) : this(targetWord, DateTime.UtcNow) { }
+}
+
+/// <summary>
+/// Wird ausgelöst, wenn das Kind die Wortvorlage per Leertaste oder Timeout überspringt.
+/// </summary>
+public record WordTemplateChallengeSkippedEvent(string TargetWord, DateTime OccurredOn) : IDomainEvent
+{
+    public WordTemplateChallengeSkippedEvent(string targetWord) : this(targetWord, DateTime.UtcNow) { }
+}
+
