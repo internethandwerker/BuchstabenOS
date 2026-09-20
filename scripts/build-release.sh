@@ -20,12 +20,18 @@ RELEASE_DIR="$ROOT_DIR/releases"
 echo "🔨 Baue BuchstabenOS Release ($VERSION)..."
 cd "$ROOT_DIR"
 
+SEMVER="${VERSION#v}"
+
 # 1. Self-contained Release kompilieren
 dotnet publish src/BuchstabenOS.UI.Desktop/BuchstabenOS.UI.Desktop.csproj \
     -c Release \
     -r linux-x64 \
     --self-contained true \
     -p:PublishSingleFile=true \
+    -p:Version="$SEMVER" \
+    -p:AssemblyVersion="$SEMVER.0" \
+    -p:FileVersion="$SEMVER.0" \
+    -p:InformationalVersion="$SEMVER" \
     -o "$DIST_DIR"
 
 # 2. Release-Verzeichnis vorbereiten
