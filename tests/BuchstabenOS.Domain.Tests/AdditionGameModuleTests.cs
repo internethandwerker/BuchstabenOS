@@ -153,4 +153,54 @@ public class AdditionGameModuleTests
         game.ApplyConfiguration(new Dictionary<string, object> { ["MaxSum"] = 5 });
         Assert.Equal(5, game.MaxSum);
     }
+
+    [Fact]
+    public void FormatTemplate_Should_Replace_Placeholders_And_Handle_Static_Text()
+    {
+        // 1. Platzhalter [a] und [b]
+        string resultAb = AdditionGameModule.FormatTemplate("Was ist [a] plus [b]?", 2, 3);
+        Assert.Equal("Was ist zwei plus drei?", resultAb);
+
+        // 2. Platzhalter {0} und {1}
+        string resultPos = AdditionGameModule.FormatTemplate("Kannst du mir sagen, was {0} plus {1} ist?", 1, 4);
+        Assert.Equal("Kannst du mir sagen, was eins plus vier ist?", resultPos);
+
+        // 3. Statischer Text ohne Platzhalter
+        string resultStatic = AdditionGameModule.FormatTemplate("Wie viel ist das? Bitte rechne die Aufgabe aus.", 5, 5);
+        Assert.Equal("Wie viel ist das? Bitte rechne die Aufgabe aus.", resultStatic);
+    }
+
+    [Fact]
+    public void Dice_RollSpokenPrompt_Should_Not_Repeat_Immediate_Previous_Template()
+    {
+        var game = new AdditionGameModule();
+        string previous = string.Empty;
+
+        for (int i = 0; i < 25; i++)
+        {
+            string current = game.RollSpokenPrompt(2, 3);
+            Assert.False(string.IsNullOrWhiteSpace(current));
+
+            if (!string.IsNullOrEmpty(previous))
+            {
+                Assert.NotEqual(previous, current);
+            }
+
+            previous = current;
+        }
+    }
+
+    [Fact]
+    public async Task Initialized_And_Generated_Tasks_Should_Have_Spoken_Prompt()
+    {
+        var game = new AdditionGameModule();
+        var context = new TestGameContext();
+        await game.InitializeAsync(context);
+
+        Assert.False(string.IsNullOrWhiteSpace(game.CurrentTaskSpokenPrompt));
+
+        var generatedEvent = game.GenerateNewTask();
+        Assert.False(string.IsNullOrWhiteSpace(game.CurrentTaskSpokenPrompt));
+        Assert.Equal(game.CurrentTaskSpokenPrompt, generatedEvent.SpokenPrompt);
+    }
 }

@@ -12,12 +12,24 @@ namespace BuchstabenOS.Domain.Model.Games;
 /// </summary>
 public class AdditionGameModule : IGameModule, IRenderableGame, IGameConfigurable
 {
-    private static readonly string[] SpokenQuestionTemplates =
+    public static readonly string[] SpokenQuestionTemplates =
     [
-        "Kannst du mir sagen, was {0} plus {1} ist?",
-        "Was ist {0} plus {1}?",
-        "Wenn man {0} und {1} addiert, was ist das richtige Ergebnis?",
-        "Du hast {0} und fügst {1} hinzu. Wie viel hast du dann?"
+        // Mit variablen Platzhaltern [a] und [b] / {0} und {1}
+        "Was ist [a] plus [b]?",
+        "Wie viel ist [a] plus [b]?",
+        "Kannst du mir sagen, was [a] plus [b] ist?",
+        "Wenn du [a] hast und [b] hinzufügst, wie viel hast du dann insgesamt?",
+        "Wenn man [a] und [b] zusammenzählt, was ist das richtige Ergebnis?",
+        "Rechne mal aus: Was ist [a] plus [b]?",
+        "Was ergibt [a] plus [b]? Bitte tippe die Lösung ein!",
+        "Du hast [a] Sterne und zauberst [b] dazu. Wie viele Sterne sind es jetzt?",
+
+        // Ohne Platzhalter (direkte Aufforderung zum Bildschirm)
+        "Wie viel ist das? Bitte rechne die Aufgabe aus.",
+        "Was ist hier die Lösung?",
+        "Schau mal auf den Bildschirm: Was kommt da raus?",
+        "Wie viel ergibt diese Plusaufgabe? Tippe die Zahl ein.",
+        "Rechne das mal aus: Was ist die richtige Zahl?"
     ];
 
     private readonly Random _random = new();
@@ -27,7 +39,7 @@ public class AdditionGameModule : IGameModule, IRenderableGame, IGameConfigurabl
     private IGameContext? _context;
     private int _maxSum = 10;
     private int _minOperand = 1;
-    private int _templateIndex = 0;
+    private int _lastTemplateIndex = -1;
 
     private int _operandA;
     private int _operandB;
@@ -95,13 +107,14 @@ public class AdditionGameModule : IGameModule, IRenderableGame, IGameConfigurabl
     public int OperandB => _operandB;
     public int ExpectedResult => _expectedResult;
     public string UserAnswer => _userAnswer;
+    public string CurrentTaskSpokenPrompt { get; private set; } = string.Empty;
 
     public Task InitializeAsync(IGameContext context, CancellationToken cancellationToken = default)
     {
         _context = context;
         IsActive = true;
         _sessionStartTime = DateTime.UtcNow;
-        GenerateNewTask();
+        GenerateNewTask(deferredNotification: true);
         return Task.CompletedTask;
     }
 
@@ -202,7 +215,56 @@ public class AdditionGameModule : IGameModule, IRenderableGame, IGameConfigurabl
         return ValueTask.FromResult(new GameInputResult(true, emittedEvents));
     }
 
-    public void GenerateNewTask(bool deferredNotification = false)
+    /// <summary>
+    /// Ermittelt über einen Zufallswürfel das nächste Vorlese-Template,
+    /// ohne unmittelbar dasselbe Template hintereinander zu wiederholen.
+    /// </summary>
+    public string RollSpokenPrompt(int a, int b)
+    {
+        if (SpokenQuestionTemplates.Length == 0)
+        {
+            return $"Was ist {NumberToGermanWord(a)} plus {NumberToGermanWord(b)}?";
+        }
+
+        int nextIndex;
+        if (SpokenQuestionTemplates.Length > 1)
+        {
+            do
+            {
+                nextIndex = _random.Next(SpokenQuestionTemplates.Length);
+            } while (nextIndex == _lastTemplateIndex);
+        }
+        else
+        {
+            nextIndex = 0;
+        }
+
+        _lastTemplateIndex = nextIndex;
+        return FormatTemplate(SpokenQuestionTemplates[nextIndex], a, b);
+    }
+
+    /// <summary>
+    /// Ersetzt [a]/[b] bzw. {0}/{1} in einem Vorlese-Template durch die ausgeschriebenen deutschen Zahlwörter.
+    /// Templates ohne Platzhalter bleiben unverändert.
+    /// </summary>
+    public static string FormatTemplate(string template, int a, int b)
+    {
+        string wordA = NumberToGermanWord(a);
+        string wordB = NumberToGermanWord(b);
+
+        string formatted = template
+            .Replace("[a]", wordA, StringComparison.OrdinalIgnoreCase)
+            .Replace("[b]", wordB, StringComparison.OrdinalIgnoreCase);
+
+        if (formatted.Contains("{0}") || formatted.Contains("{1}"))
+        {
+            formatted = string.Format(formatted, wordA, wordB);
+        }
+
+        return formatted;
+    }
+
+    public MathTaskGeneratedEvent GenerateNewTask(bool deferredNotification = false)
     {
         _userAnswer = string.Empty;
         _attemptsForCurrentTask = 0;
@@ -219,20 +281,15 @@ public class AdditionGameModule : IGameModule, IRenderableGame, IGameConfigurabl
         _operandB = _random.Next(_minOperand, Math.Max(_minOperand + 1, maxB + 1));
         _expectedResult = _operandA + _operandB;
 
-        // Wähle rotierendes Vorlese-Template
-        string template = SpokenQuestionTemplates[_templateIndex % SpokenQuestionTemplates.Length];
-        _templateIndex++;
-
-        string wordA = NumberToGermanWord(_operandA);
-        string wordB = NumberToGermanWord(_operandB);
-        string spokenPrompt = string.Format(template, wordA, wordB);
+        // Wähle rotierendes / gewürfeltes Vorlese-Template
+        CurrentTaskSpokenPrompt = RollSpokenPrompt(_operandA, _operandB);
 
         var generatedEvent = new MathTaskGeneratedEvent(
             $"{_operandA} + {_operandB} = ?",
             _operandA,
             _operandB,
             _expectedResult,
-            spokenPrompt
+            CurrentTaskSpokenPrompt
         );
 
         if (!deferredNotification)
@@ -241,13 +298,16 @@ public class AdditionGameModule : IGameModule, IRenderableGame, IGameConfigurabl
         }
 
         OnViewStateChanged();
+
+        return generatedEvent;
     }
 
     public void RepeatCurrentTaskPrompt()
     {
-        string wordA = NumberToGermanWord(_operandA);
-        string wordB = NumberToGermanWord(_operandB);
-        string prompt = $"Wie viel ist {wordA} plus {wordB}?";
+        string prompt = !string.IsNullOrWhiteSpace(CurrentTaskSpokenPrompt)
+            ? CurrentTaskSpokenPrompt
+            : $"Wie viel ist {NumberToGermanWord(_operandA)} plus {NumberToGermanWord(_operandB)}?";
+
         var ev = new MathTaskGeneratedEvent(
             $"{_operandA} + {_operandB} = ?",
             _operandA,

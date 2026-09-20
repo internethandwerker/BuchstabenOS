@@ -21,6 +21,7 @@ public class GameCoordinator : IGameContext
     private readonly ITtsEngine _ttsEngine;
     private readonly IGameModerator? _moderator;
     private IGameModule? _activeGame;
+    private bool _isSwitchScheduled;
 
     public string ActiveGameId => _activeGame?.Metadata.Id ?? string.Empty;
     public IGameModule? ActiveGame => _activeGame;
@@ -53,6 +54,12 @@ public class GameCoordinator : IGameContext
         _activeGame = game;
         await game.InitializeAsync(this, cancellationToken);
         ActiveGameChanged?.Invoke(game);
+
+        if (game is AdditionGameModule mathGame)
+        {
+            await Task.Delay(300, cancellationToken);
+            await _ttsEngine.SpeakWordAsync(mathGame.CurrentTaskSpokenPrompt, cancellationToken);
+        }
     }
 
     /// <summary>
@@ -72,6 +79,12 @@ public class GameCoordinator : IGameContext
 
         // Begrüßung vorlesen
         await _ttsEngine.SpeakWordAsync(introPrompt, cancellationToken);
+
+        if (nextGame is AdditionGameModule mathGame)
+        {
+            await Task.Delay(400, cancellationToken);
+            await _ttsEngine.SpeakWordAsync(mathGame.CurrentTaskSpokenPrompt, cancellationToken);
+        }
     }
 
     /// <summary>
@@ -90,6 +103,14 @@ public class GameCoordinator : IGameContext
             await ProcessDomainEventAsync(ev);
         }
 
+        // Falls eine Matheaufgabe gelöst wurde und wir weiterhin im Mathespiel bleiben:
+        // Neue Aufgabe nach dem Lob vorlesen!
+        if (!_isSwitchScheduled && _activeGame is AdditionGameModule mathGame && result.EmittedEvents.OfType<MathTaskSolvedEvent>().Any())
+        {
+            await Task.Delay(350);
+            await _ttsEngine.SpeakWordAsync(mathGame.CurrentTaskSpokenPrompt);
+        }
+
         return result;
     }
 
@@ -99,6 +120,11 @@ public class GameCoordinator : IGameContext
     public void PublishEvent(IDomainEvent domainEvent)
     {
         EventPublished?.Invoke(domainEvent);
+
+        if (domainEvent is MathTaskGeneratedEvent generatedEvent)
+        {
+            _ = _ttsEngine.SpeakWordAsync(generatedEvent.SpokenPrompt);
+        }
     }
 
     private async Task ProcessDomainEventAsync(IDomainEvent domainEvent)
@@ -123,11 +149,6 @@ public class GameCoordinator : IGameContext
                 await _ttsEngine.SpeakWordAsync(spaceEvent.RawWord);
                 break;
 
-            case MathTaskGeneratedEvent generatedEvent:
-                // Matheaufgabe vorlesen! (Template: "Kannst du mir sagen, was 2 plus 3 ist?")
-                await _ttsEngine.SpeakWordAsync(generatedEvent.SpokenPrompt);
-                break;
-
             case MathTaskSolvedEvent solvedEvent:
                 // Richtig gerechnet! Jingle + Lob
                 await _audioPlayer.PlayJingleAsync("word_success");
@@ -147,10 +168,12 @@ public class GameCoordinator : IGameContext
                     string nextGameId = _moderator.SelectNextGame(roundEv.GameId, _gameRegistry.GetAllGames());
                     if (!string.IsNullOrEmpty(nextGameId) && !nextGameId.Equals(roundEv.GameId, StringComparison.OrdinalIgnoreCase))
                     {
+                        _isSwitchScheduled = true;
                         // Sanfte Verzögerung, damit die Erfolgs-Animation erst gefeiert werden kann
                         _ = Task.Run(async () =>
                         {
                             await Task.Delay(2600);
+                            _isSwitchScheduled = false;
                             await SwitchGameAsync(nextGameId);
                         });
                     }
