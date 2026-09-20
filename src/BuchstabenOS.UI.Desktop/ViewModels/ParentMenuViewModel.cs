@@ -98,10 +98,45 @@ public partial class ParentMenuViewModel : ViewModelBase
     [ObservableProperty]
     private int _mathMaxSum = 10;
 
+    // =========================================================
+    // 4. SOFTWARE-UPDATES
+    // =========================================================
+    [ObservableProperty]
+    private string _currentVersion = "1.0.0";
+
+    [ObservableProperty]
+    private string _updateStatusText = "Noch nicht geprüft";
+
+    [ObservableProperty]
+    private bool _isCheckingForUpdates;
+
+    [ObservableProperty]
+    private bool _isUpdateAvailable;
+
+    [ObservableProperty]
+    private bool _isDownloadingUpdate;
+
+    [ObservableProperty]
+    private double _downloadProgressPercent;
+
+    [ObservableProperty]
+    private bool _isUpdateReadyToRestart;
+
+    [ObservableProperty]
+    private string _updateChangelog = string.Empty;
+
+    [ObservableProperty]
+    private string _latestAvailableVersion = string.Empty;
+
+    [ObservableProperty]
+    private string _updateErrorMessage = string.Empty;
+
+    private UpdateInfo? _pendingUpdate;
     private readonly IWordDictionaryRepository _dictionaryRepo;
     private readonly ISystemControl _systemControl;
     private readonly ISettingsRepository _settingsRepo;
     private readonly WordDetector _wordDetector;
+    private readonly IUpdateService? _updateService;
     private AppSettings _settings = new();
 
     public event Action? CloseRequested;
@@ -113,14 +148,17 @@ public partial class ParentMenuViewModel : ViewModelBase
         IWordDictionaryRepository dictionaryRepo,
         ISystemControl systemControl,
         ISettingsRepository settingsRepo,
-        WordDetector wordDetector)
+        WordDetector wordDetector,
+        IUpdateService? updateService = null)
     {
         _dictionaryRepo = dictionaryRepo ?? throw new ArgumentNullException(nameof(dictionaryRepo));
         _systemControl = systemControl ?? throw new ArgumentNullException(nameof(systemControl));
         _settingsRepo = settingsRepo ?? throw new ArgumentNullException(nameof(settingsRepo));
         _wordDetector = wordDetector ?? throw new ArgumentNullException(nameof(wordDetector));
+        _updateService = updateService;
 
         _volume = _systemControl.GetSystemVolume();
+        _currentVersion = _updateService?.CurrentVersion ?? "1.0.0";
     }
 
     public async Task InitializeAsync()
@@ -329,6 +367,94 @@ public partial class ParentMenuViewModel : ViewModelBase
     public void Reboot()
     {
         _systemControl.Reboot();
+    }
+
+    // --- Software-Update Befehle ---
+    [RelayCommand]
+    public async Task CheckForUpdatesAsync()
+    {
+        if (_updateService == null) return;
+
+        IsCheckingForUpdates = true;
+        UpdateStatusText = "Suche nach Updates...";
+        UpdateErrorMessage = string.Empty;
+
+        try
+        {
+            var result = await _updateService.CheckForUpdatesAsync();
+            if (result.IsUpdateAvailable && result.UpdateInfo != null)
+            {
+                _pendingUpdate = result.UpdateInfo;
+                IsUpdateAvailable = true;
+                LatestAvailableVersion = result.UpdateInfo.Version;
+                UpdateChangelog = result.UpdateInfo.ChangelogMarkdown;
+                UpdateStatusText = $"Update auf v{result.UpdateInfo.Version} verfügbar!";
+            }
+            else if (!string.IsNullOrEmpty(result.ErrorMessage))
+            {
+                IsUpdateAvailable = false;
+                UpdateErrorMessage = result.ErrorMessage;
+                UpdateStatusText = "Update-Prüfung fehlgeschlagen.";
+            }
+            else
+            {
+                IsUpdateAvailable = false;
+                UpdateStatusText = $"BuchstabenOS ist auf dem neuesten Stand (v{CurrentVersion}).";
+            }
+        }
+        catch (Exception ex)
+        {
+            UpdateErrorMessage = ex.Message;
+            UpdateStatusText = "Fehler bei der Suche.";
+        }
+        finally
+        {
+            IsCheckingForUpdates = false;
+        }
+    }
+
+    [RelayCommand]
+    public async Task InstallUpdateAsync()
+    {
+        if (_updateService == null || _pendingUpdate == null) return;
+
+        IsDownloadingUpdate = true;
+        DownloadProgressPercent = 0;
+        UpdateStatusText = "Lade Update herunter...";
+        UpdateErrorMessage = string.Empty;
+
+        var progress = new Progress<double>(p =>
+        {
+            DownloadProgressPercent = Math.Round(p, 1);
+            UpdateStatusText = $"Lade Update herunter: {DownloadProgressPercent:F0}%";
+        });
+
+        try
+        {
+            bool success = await _updateService.DownloadAndApplyUpdateAsync(_pendingUpdate, progress);
+            if (success)
+            {
+                IsUpdateAvailable = false;
+                IsUpdateReadyToRestart = true;
+                UpdateStatusText = $"Update auf v{_pendingUpdate.Version} erfolgreich installiert! Bitte neu starten.";
+                StatusNotification = "Update installiert! Klicke auf 'Jetzt neu starten'.";
+            }
+        }
+        catch (Exception ex)
+        {
+            UpdateErrorMessage = $"Installationsfehler: {ex.Message}";
+            UpdateStatusText = "Installation fehlgeschlagen.";
+        }
+        finally
+        {
+            IsDownloadingUpdate = false;
+        }
+    }
+
+    [RelayCommand]
+    public void RestartApp()
+    {
+        _updateService?.RestartApplication();
     }
 
     private async Task LoadWordsAsync()

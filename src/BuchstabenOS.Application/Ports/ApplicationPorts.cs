@@ -44,6 +44,7 @@ public interface ISystemControl
     void Reboot();
     void SetSystemVolume(int percent);
     int GetSystemVolume();
+    void RestartApp() => Environment.Exit(0);
 }
 
 /// <summary>
@@ -64,4 +65,37 @@ public interface IGameRegistry
     IReadOnlyList<IGameModule> GetAllGames();
     IGameModule? GetGameById(string gameId);
     void RegisterGame(IGameModule game);
+}
+
+/// <summary>
+/// Metadaten eines verfügbaren Software-Updates.
+/// </summary>
+public record UpdateInfo(
+    string Version,
+    string ReleaseTitle,
+    string ChangelogMarkdown,
+    string AssetDownloadUrl,
+    long FileSizeBytes,
+    DateTime PublishedAt
+);
+
+/// <summary>
+/// Status-Ergebnis einer Update-Prüfung.
+/// </summary>
+public record UpdateCheckResult(
+    bool IsUpdateAvailable,
+    string CurrentVersion,
+    UpdateInfo? UpdateInfo = null,
+    string? ErrorMessage = null
+);
+
+/// <summary>
+/// Port für das Prüfen, Herunterladen und Installieren von Software-Updates.
+/// </summary>
+public interface IUpdateService
+{
+    string CurrentVersion { get; }
+    Task<UpdateCheckResult> CheckForUpdatesAsync(CancellationToken cancellationToken = default);
+    Task<bool> DownloadAndApplyUpdateAsync(UpdateInfo update, IProgress<double>? progress = null, CancellationToken cancellationToken = default);
+    void RestartApplication();
 }

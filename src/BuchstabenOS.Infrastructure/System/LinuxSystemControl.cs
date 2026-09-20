@@ -17,6 +17,27 @@ public class LinuxSystemControl : ISystemControl
         Environment.Exit(42);
     }
 
+    public void RestartApp()
+    {
+        string? currentProcess = Environment.ProcessPath;
+        if (!string.IsNullOrEmpty(currentProcess) && File.Exists(currentProcess))
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = currentProcess,
+                    UseShellExecute = true
+                });
+            }
+            catch
+            {
+                // Fallback: Im Kiosk-Modus startet buchstabenos-session.sh die App bei Exit-Code 0 sowieso neu.
+            }
+        }
+        Environment.Exit(0);
+    }
+
     public void PowerOff()
     {
         RunCommand("systemctl", "poweroff");

@@ -14,6 +14,7 @@ using BuchstabenOS.Infrastructure.Audio;
 using BuchstabenOS.Infrastructure.Dictionary;
 using BuchstabenOS.Infrastructure.Storage;
 using BuchstabenOS.Infrastructure.System;
+using BuchstabenOS.Infrastructure.Updates;
 using BuchstabenOS.UI.Desktop.ViewModels;
 using BuchstabenOS.UI.Desktop.Views;
 using Microsoft.Extensions.DependencyInjection;
@@ -97,6 +98,7 @@ public partial class App : Avalonia.Application
         services.AddSingleton<ITtsEngine, PiperTtsEngine>();
         services.AddSingleton<ISystemControl, LinuxSystemControl>();
         services.AddSingleton<ISettingsRepository, JsonSettingsRepository>();
+        services.AddSingleton<IUpdateService, GitHubReleaseUpdateService>();
 
         // Domain Services & Models
         services.AddSingleton<FontScaleCalculator>();
@@ -128,8 +130,9 @@ public partial class App : Avalonia.Application
             var sys = sp.GetRequiredService<ISystemControl>();
             var set = sp.GetRequiredService<ISettingsRepository>();
             var detector = sp.GetRequiredService<WordDetector>();
+            var updater = sp.GetRequiredService<IUpdateService>();
 
-            var parentVm = new ParentMenuViewModel(dict, sys, set, detector);
+            var parentVm = new ParentMenuViewModel(dict, sys, set, detector, updater);
 
             parentVm.SettingsUpdated += updatedSettings =>
             {

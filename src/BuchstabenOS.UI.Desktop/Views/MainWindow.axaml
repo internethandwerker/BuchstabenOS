@@ -654,10 +654,116 @@
                                            FontSize="18"
                                            FontWeight="Bold"
                                            Foreground="#FFD166" />
-                                <TextBlock Text="Systemsteuerungs-Aktionen für Moritz' Laptop"
+                                <TextBlock Text="Systemsteuerungs-Aktionen &amp; Software-Updates für Moritz' Laptop"
                                            FontSize="12"
                                            Foreground="#8C90A0" />
                             </StackPanel>
+
+                            <!-- SOFTWARE-UPDATES CARD -->
+                            <Border Background="#161822"
+                                    BorderBrush="#2E3242"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    Padding="16"
+                                    Margin="0,4,0,4">
+                                <StackPanel Spacing="12">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                                <TextBlock Text="🚀 Software-Updates"
+                                                           FontWeight="Bold"
+                                                           FontSize="15"
+                                                           Foreground="#F5F4EE"
+                                                           VerticalAlignment="Center" />
+                                                <Border Background="#252836"
+                                                        CornerRadius="4"
+                                                        Padding="6,2"
+                                                        VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding ParentMenu.CurrentVersion, StringFormat='v{0}'}"
+                                                               Foreground="#8C90A0"
+                                                               FontSize="11"
+                                                               FontWeight="Bold" />
+                                                </Border>
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding ParentMenu.UpdateStatusText}"
+                                                       FontSize="13"
+                                                       Foreground="#A5A8B8" />
+                                        </StackPanel>
+
+                                        <!-- Aktions-Buttons -->
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                            <!-- Nach Updates suchen -->
+                                            <Button Content="🔍 Nach Updates suchen"
+                                                    Command="{Binding ParentMenu.CheckForUpdatesCommand}"
+                                                    IsVisible="{Binding !ParentMenu.IsCheckingForUpdates}"
+                                                    Background="#2A2C38"
+                                                    Foreground="#F5F4EE"
+                                                    CornerRadius="8"
+                                                    Padding="14,9" />
+
+                                            <TextBlock Text="⏳ Prüfe Updates..."
+                                                       IsVisible="{Binding ParentMenu.IsCheckingForUpdates}"
+                                                       Foreground="#FFD166"
+                                                       VerticalAlignment="Center"
+                                                       Margin="8,0" />
+
+                                            <!-- Jetzt installieren -->
+                                            <Button Content="⬇️ Jetzt installieren"
+                                                    Command="{Binding ParentMenu.InstallUpdateCommand}"
+                                                    IsVisible="{Binding ParentMenu.IsUpdateAvailable}"
+                                                    IsEnabled="{Binding !ParentMenu.IsDownloadingUpdate}"
+                                                    Background="#2ECC71"
+                                                    Foreground="White"
+                                                    FontWeight="Bold"
+                                                    CornerRadius="8"
+                                                    Padding="14,9" />
+
+                                            <!-- Jetzt neu starten -->
+                                            <Button Content="🔄 Jetzt neu starten"
+                                                    Command="{Binding ParentMenu.RestartAppCommand}"
+                                                    IsVisible="{Binding ParentMenu.IsUpdateReadyToRestart}"
+                                                    Background="#FFD166"
+                                                    Foreground="#121318"
+                                                    FontWeight="Bold"
+                                                    CornerRadius="8"
+                                                    Padding="14,9" />
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <!-- Fortschrittsbalken beim Download -->
+                                    <StackPanel Spacing="4" IsVisible="{Binding ParentMenu.IsDownloadingUpdate}">
+                                        <ProgressBar Value="{Binding ParentMenu.DownloadProgressPercent}"
+                                                     Minimum="0" Maximum="100"
+                                                     Height="8"
+                                                     CornerRadius="4"
+                                                     Foreground="#2ECC71"
+                                                     Background="#101116" />
+                                    </StackPanel>
+
+                                    <!-- Fehlermeldung falls aufgetreten -->
+                                    <TextBlock Text="{Binding ParentMenu.UpdateErrorMessage}"
+                                               Foreground="#FF7B7B"
+                                               FontSize="12"
+                                               TextWrapping="Wrap"
+                                               IsVisible="{Binding ParentMenu.UpdateErrorMessage.Length}" />
+
+                                    <!-- Changelog-Vorschau falls Update verfügbar -->
+                                    <Expander Header="📋 Was ist neu in diesem Update?"
+                                              IsVisible="{Binding ParentMenu.IsUpdateAvailable}"
+                                              Background="#101116"
+                                              BorderBrush="#252834"
+                                              BorderThickness="1"
+                                              CornerRadius="8">
+                                        <ScrollViewer MaxHeight="120">
+                                            <TextBlock Text="{Binding ParentMenu.UpdateChangelog}"
+                                                       Foreground="#C5C7D0"
+                                                       FontSize="12"
+                                                       TextWrapping="Wrap"
+                                                       Margin="12,8" />
+                                        </ScrollViewer>
+                                    </Expander>
+                                </StackPanel>
+                            </Border>
 
                             <Grid ColumnDefinitions="*,*,*">
                                 <Button Grid.Column="0"
