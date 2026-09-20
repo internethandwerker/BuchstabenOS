@@ -49,3 +49,5 @@ Kinder im Vorschulalter sind fasziniert von Tastaturen. Sie wollen tippen, Knöp
 *   [[04-Sprachausgabe-TTS-und-Audio|04. Sprachausgabe (TTS) & Audio-Pipeline]] – Piper TTS, Pre-rendered WAVs, Latenz & Pädagogik
 *   [[05-UI-UX-und-Schrift-Engine|05. UI/UX & Schriftgrößen-Engine]] – Dynamic Font Scaling, Layout-Algorithmus & Eltern-Overlay
 *   [[06-Roadmap-und-Erweiterungsplan|06. Roadmap & Zukunftsmodule]] – Von V1 bis Belohnungsvideos, Mathe und Minispielen
+*   [[07-Auto-Update-und-Release-System|07. Auto-Update- & Release-System]] – GitHub Releases API, atomarer Inode-Tausch und Rootless-Sicherheit
+*   [[08-Git-und-Release-Handbuch|08. Git- & Release-Handbuch für Alex]] – Schritt-für-Schritt Leitfaden für Commits, Versionierung und Veröffentlichung

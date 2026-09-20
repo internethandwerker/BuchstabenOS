@@ -69,6 +69,12 @@ Vorschulkinder lieben Tastaturen. Aber normale Betriebssysteme sind voller Falle
 *   **Sprachliche Überleitung:** Moritz wird beim Wechsel freundlich vom System mitgenommen (*"Super gemacht! Jetzt spielen wir Buchstaben-Zauber!"*).
 *   **Volle Elternkontrolle:** Im Elternmenü können Spiele manuell gewechselt, Gewichte verschoben oder die automatische Rotation deaktiviert werden.
 
+### 8. 1-Klick Software-Updates & Release-Pipeline
+*   **Updates auf Knopfdruck:** Eltern und Lehrkräfte können direkt im Elternmenü nach Updates suchen und neue Versionen mit einem Klick installieren – ganz ohne Git oder Terminal!
+*   **Linux-sicherer Inode-Tausch:** Aktualisiert das laufende Binary atomar im Hintergrund und räumt alte Dateien auf.
+*   **Unterbrechungsfreier Neustart:** Startet die App nach der Installation in weniger als 2 Sekunden neu, während die Kiosk-Umgebung stabil aktiv bleibt.
+*   **Automatisierter Release-Bau:** Mit `bash scripts/build-release.sh <version> --publish` werden Standalone-Linux-Archive geschnürt, Checksummen erzeugt und direkt auf GitHub veröffentlicht.
+
 ---
 
 ## 🏛️ Architektur & Code-Qualität
@@ -113,41 +119,72 @@ BuchstabenOS ist nicht auf das freie Tippen beschränkt. Jedes Spielmodul implem
 ## 💻 Schnellstart & Installation
 
 ### Voraussetzungen
-*   .NET 10 SDK (zur Entwicklung / zum Kompilieren)
-*   Linux (X11 oder Wayland mit PipeWire/PulseAudio)
+*   **Entwicklungsrechner:** .NET 10 SDK, Git, Linux/macOS/Windows
+*   **Kinder-Laptop:** Beliebiger 64-Bit-PC/Laptop (z. B. altes Lenovo ThinkPad mit **BunsenLabs Linux** oder Debian-Minimal-Installation). **Keine** .NET-Installation auf dem Zielgerät erforderlich!
 
-### 1. Im Fenstermodus starten (Entwickler-Modus)
+---
+
+### 1. Entwickler-Modus (Fenstermodus auf der Workstation)
 ```bash
 git clone git@github.com:internethandwerker/BuchstabenOS.git
 cd BuchstabenOS
 
-# Sprachausgabe (Piper TTS) und Thorsten-Modell installieren:
+# 1. Deutsche Offline-Sprachausgabe (Piper TTS & Thorsten-Stimme) einrichten:
 ./scripts/install-tts.sh
 
-# Starten im Fenstermodus:
+# 2. Im Fenstermodus starten:
 dotnet run --project src/BuchstabenOS.UI.Desktop -- --windowed
 ```
 
-### 2. Standalone-Binary bauen (für den Kinder-Laptop)
-```bash
-dotnet publish src/BuchstabenOS.UI.Desktop/BuchstabenOS.UI.Desktop.csproj \
-  -c Release \
-  -r linux-x64 \
-  --self-contained \
-  -p:PublishSingleFile=true \
-  -o dist/
-```
-Erzeugt eine einzige ausführbare Datei unter `dist/BuchstabenOS.UI.Desktop`. Auf dem Kinder-Laptop muss **kein .NET SDK** installiert werden!
+---
 
-### 3. Kiosk-Modus auf dem Kinder-Laptop (BunsenLabs / Debian)
+### 2. Kiosk-Modus auf dem Kinder-Laptop (BunsenLabs / Debian)
+
+Auf dem Kinder-Laptop genügt ein einziger Befehl:
+
 ```bash
 sudo bash kiosk/install-kiosk.sh
 ```
-Richtet eine isolierte X11-Session ein:
-*   Kein Fenstermanager, kein störender Desktop.
-*   Mauszeiger wird nach 1 Sekunde Inaktivität unsichtbar (`unclutter`).
-*   Bildschirmschoner und Energiesparmodi sind deaktiviert.
-*   Sicherer Returncode 42 führt zum normalen Eltern-Desktop.
+
+**Was die Kiosk-Installation vollautomatisch einrichtet:**
+*   👤 **Benutzer `moritz`:** Erstellt den Kiosk-Benutzer mit Rechten für `audio`, `video` und `input`.
+*   🔓 **Rechte für In-App-Updates:** Weist `/opt/buchstabenos` dem Benutzer `moritz` zu – dadurch können Eltern Updates im Menü ohne Root-Passwort installieren!
+*   🎙️ **Offline-Sprachausgabe:** Lädt und installiert Piper TTS und das Thorsten-Modell für `moritz`.
+*   🖥️ **LightDM Autologin:** Startet beim Einschalten des Laptops direkt und ohne Passwort in die exklusive `buchstabenos`-Session.
+*   🔒 **Hardware-Schutz:** Deaktiviert X11-TTY-Wechsel (`Strg+Alt+F1-F12`) und Kernel Magic-SysRq.
+*   🐭 **Fokus & Mauszeiger:** Versteckt den Mauszeiger nach 1 Sekunde Inaktivität (`unclutter`).
+
+Nach der Installation den Laptop einfach neu starten:
+```bash
+sudo reboot
+```
+
+---
+
+### 3. Software-Updates (1-Klick für Eltern & Außenstehende)
+
+Eltern müssen weder Git bedienen noch Linux-Befehle tippen:
+
+1. Drücke im Spiel **`Strg + Alt + Shift + P`** und gib die PIN **`1337`** ein.
+2. Scrolle zu **"💻 Systemeinstellungen (Linux)"** $\rightarrow$ **"🚀 Software-Updates"**.
+3. Klicke auf **"🔍 Nach Updates suchen"**.
+4. Wenn ein Update vorliegt, klicke auf **"⬇️ Jetzt installieren"** (Changelog ausklappbar, Live-Fortschrittsbalken).
+5. Anschließend auf **"🔄 Jetzt neu starten"** klicken – innerhalb von 2 Sekunden startet die neue Version!
+
+---
+
+### 4. Neue Releases bauen & veröffentlichen (für Alex & Entwickler)
+
+Mit unserem Release-Skript erstellst du im Handumdrehen ein neues Release:
+
+```bash
+# Standalone Linux-Paket bauen & direkt als GitHub Release veröffentlichen:
+bash scripts/build-release.sh v1.1.0 --publish
+```
+
+Ausführliche Anleitungen:
+*   📘 [07. Auto-Update- & Release-Architektur](docs/07-Auto-Update-und-Release-System.md)
+*   🛠️ [08. Git- & Release-Handbuch für Alex](docs/08-Git-und-Release-Handbuch.md)
 
 ---
 

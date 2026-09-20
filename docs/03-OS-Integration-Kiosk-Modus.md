@@ -38,10 +38,28 @@ graph TD
 
 ---
 
-## 🛠️ Konfigurations-Blaupause für BunsenLabs
+## 🛠️ Vollautomatische Kiosk-Installation mit einem Befehl
 
-### 1. Das Kiosk-Startskript (`/usr/local/bin/buchstabenos-session`)
-Dieses Skript wird von LightDM aufgerufen. Es startet Sound, blendet die Maus aus und startet BuchstabenOS in einer Dauerschleife (Restart bei Crash):
+Anstatt alle Konfigurationsdateien per Hand anzulegen, liegt im Repository das Installationsskript [`kiosk/install-kiosk.sh`](file:///home/alex/Projekte/Coding/BuchstabenOS/kiosk/install-kiosk.sh).
+
+```bash
+sudo bash kiosk/install-kiosk.sh
+```
+
+### Was das Installationsskript automatisch konfiguriert:
+
+1. **Hilfstools installieren:** `unclutter`, `pulseaudio-utils`, `alsa-utils`.
+2. **Benutzer `moritz` einrichten:** Erstellt den Benutzer `moritz` ohne Passwort (für den Autologin) und fügt ihn den Gruppen `audio`, `video` und `input` hinzu.
+3. **Rechte für 1-Klick-Updates:** Setzt die Eigentümerschaft von `/opt/buchstabenos` auf `moritz:moritz`. Dadurch kann der in die App integrierte Auto-Updater die Binärdatei bei Updates austauschen, **ohne ein Root-Passwort abzufragen**!
+4. **Offline-Sprachausgabe:** Führt im Kontext von `moritz` das Skript `scripts/install-tts.sh` aus, um Piper TTS und das deutsche Thorsten-Stimmenmodell offline zu hinterlegen.
+5. **Autostart-Session:** Installiert `/usr/local/bin/buchstabenos-session.sh` und registriert `/usr/share/xsessions/buchstabenos.desktop`.
+6. **LightDM Autologin:** Konfiguriert `/etc/lightdm/lightdm.conf` für sofortigen, passwortlosen Start in BuchstabenOS.
+7. **Tastensperren & SysRq:** Deaktiviert X11-TTY-Wechsel (`10-kiosk-security.conf`) und Kernel-SysRq.
+8. **Sofortige Aktivierung:** Kopiert vorkompilierte Dateien aus `dist/` direkt nach `/opt/buchstabenos/`.
+
+---
+
+### Das Kiosk-Session-Skript (`/usr/local/bin/buchstabenos-session.sh`)
 
 ```bash
 #!/bin/bash
@@ -50,20 +68,24 @@ xset s off
 xset -dpms
 xset s noblank
 
-# 2. Mauszeiger bei Inaktivität verstecken
-unclutter -idle 2 -root &
+# 2. Mauszeiger bei Inaktivität nach 1 Sekunde verstecken
+unclutter -idle 1 -root &
 
 # 3. Soundserver sicherstellen
-start-pulseaudio-x11 &
+start-pulseaudio-x11 2>/dev/null || true
 
-# 4. BuchstabenOS im Endlos-Loop ausführen (Selbstheilung bei Absturz)
+# 4. BuchstabenOS im Endlos-Loop ausführen (Restart nach Update oder Crash)
 while true; do
-    /opt/buchstabenos/BuchstabenOS --kiosk
+    /opt/buchstabenos/BuchstabenOS.UI.Desktop --kiosk
+    EXIT_CODE=$?
     
-    # Wenn der Exit-Code 42 ist (Papa hat über Elternmenü beendet):
-    if [ $? -eq 42 ]; then
+    # Wenn der Exit-Code 42 ist (Papa hat "Desktop freigeben" gewählt):
+    if [ $EXIT_CODE -eq 42 ]; then
         break
     fi
+    
+    # Exit-Code 0: Normaler Programm-Exit (z.B. nach Klick auf "Jetzt neu starten" beim Update)
+    # -> Schleife startet sofort und unterbrechungsfrei die neue Binärdatei!
     sleep 1
 done
 ```
