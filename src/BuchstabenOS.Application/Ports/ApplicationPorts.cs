@@ -20,6 +20,7 @@ public interface ITtsEngine
 {
     Task SpeakWordAsync(string word, CancellationToken cancellationToken = default);
     bool IsAvailable { get; }
+    void StopCurrentSpeech() { }
 }
 
 /// <summary>

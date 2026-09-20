@@ -1,4 +1,12 @@
+using System;
 using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
+using System.Threading;
+using System.Threading.Channels;
+using System.Threading.Tasks;
 using BuchstabenOS.Application.Ports;
 using Serilog;
 
@@ -6,16 +14,27 @@ namespace BuchstabenOS.Infrastructure.Audio;
 
 /// <summary>
 /// Lokale neuronale Sprachsynthese mit Piper TTS unter Linux.
-/// Arbeitet auf einer eigenen Sprach-Spur (Track 2) unabhängig von der Buchstaben-Spur,
-/// sodass getippte Buchstaben und gesprochene Wörter parallel erklingen.
+/// Verwendet eine sequentielle Sprach-Warteschlange (Speech Queue), sodass Ansagen
+/// (Begrüßung, Aufgabenstellung, Lob, Feedback) niemals gleichzeitig oder überlappend
+/// abgespielt werden, sondern verständlich nacheinander mit einer natürlichen Atempause.
 /// </summary>
-public class PiperTtsEngine : ITtsEngine
+public class PiperTtsEngine : ITtsEngine, IDisposable
 {
+    private record SpeechRequest(string Word, TaskCompletionSource<bool> Completion, CancellationToken CancellationToken);
+
     private readonly string? _piperExecutable;
     private readonly string? _modelPath;
     private readonly string _cacheDirectory;
     private readonly string? _audioPlayerBinary;
     private static readonly object _synthLock = new();
+
+    private readonly Channel<SpeechRequest> _speechChannel = Channel.CreateUnbounded<SpeechRequest>(
+        new UnboundedChannelOptions { SingleReader = true, SingleWriter = false }
+    );
+    private readonly CancellationTokenSource _lifecycleCts = new();
+    private readonly Task _workerTask;
+    private Process? _currentPlayProcess;
+    private readonly object _processLock = new();
 
     public bool IsAvailable => !string.IsNullOrEmpty(_piperExecutable) && File.Exists(_modelPath);
 
@@ -33,21 +52,109 @@ public class PiperTtsEngine : ITtsEngine
         );
 
         Directory.CreateDirectory(_cacheDirectory);
-        Log.Information("PiperTtsEngine initialisiert. Piper: {Piper}, Model: {Model}, Cache: {Cache}",
-            _piperExecutable ?? "nicht gefunden", _modelPath ?? "nicht gefunden", _cacheDirectory);
+        Log.Information("PiperTtsEngine initialisiert. Piper: {Piper}, Model: {Model}, Player: {Player}, Cache: {Cache}",
+            _piperExecutable ?? "nicht gefunden", _modelPath ?? "nicht gefunden", _audioPlayerBinary ?? "keiner", _cacheDirectory);
+
+        _workerTask = Task.Run(() => ProcessSpeechQueueAsync(_lifecycleCts.Token));
     }
 
+    /// <summary>
+    /// Reiht eine Sprachansage in die sequentielle Sprach-Warteschlange ein.
+    /// Der zurückgegebene Task schließt erst ab, wenn die Sprachansage tatsächlich vollständig abgespielt wurde.
+    /// </summary>
     public async Task SpeakWordAsync(string word, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(word)) return;
 
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var request = new SpeechRequest(word, tcs, cancellationToken);
+
+        await _speechChannel.Writer.WriteAsync(request, cancellationToken);
+        await tcs.Task;
+    }
+
+    /// <summary>
+    /// Bricht die aktuell laufende Sprachausgabe sofort ab und leert alle noch wartenden Ansagen in der Queue.
+    /// </summary>
+    public void StopCurrentSpeech()
+    {
+        lock (_processLock)
+        {
+            try
+            {
+                if (_currentPlayProcess != null && !_currentPlayProcess.HasExited)
+                {
+                    _currentPlayProcess.Kill();
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Debug(ex, "Prozessabbruch bei StopCurrentSpeech");
+            }
+            _currentPlayProcess = null;
+        }
+
+        // Alle wartenden Anfragen in der Queue abbrechen
+        while (_speechChannel.Reader.TryRead(out var pending))
+        {
+            pending.Completion.TrySetCanceled();
+        }
+    }
+
+    private async Task ProcessSpeechQueueAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (await _speechChannel.Reader.WaitToReadAsync(cancellationToken))
+            {
+                while (_speechChannel.Reader.TryRead(out var request))
+                {
+                    if (request.CancellationToken.IsCancellationRequested || cancellationToken.IsCancellationRequested)
+                    {
+                        request.Completion.TrySetCanceled();
+                        continue;
+                    }
+
+                    try
+                    {
+                        await ExecuteSpeechAsync(request.Word, request.CancellationToken);
+
+                        // Natürliche Atempause zwischen aufeinanderfolgenden Ansagen (ca. 220ms)
+                        await Task.Delay(220, cancellationToken);
+
+                        request.Completion.TrySetResult(true);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        request.Completion.TrySetCanceled();
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error(ex, "Fehler bei Sprachausgabe für '{Word}'", request.Word);
+                        request.Completion.TrySetException(ex);
+                    }
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Worker beendet
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Unerwarteter Fehler im TTS Speech-Queue Worker");
+        }
+    }
+
+    private async Task ExecuteSpeechAsync(string word, CancellationToken cancellationToken)
+    {
         string sanitized = SanitizeWordForFileName(word);
         string cachedFile = Path.Combine(_cacheDirectory, $"{sanitized}.wav");
 
-        // 1. Wenn bereits im Cache vorhanden: Sofort auf Track 2 abspielen!
+        // 1. Wenn bereits im Cache vorhanden: Abspielen und auf Ende warten!
         if (File.Exists(cachedFile))
         {
-            PlayAudioFile(cachedFile);
+            await PlayAudioFileAsync(cachedFile, cancellationToken);
             return;
         }
 
@@ -57,7 +164,7 @@ public class PiperTtsEngine : ITtsEngine
             bool success = await Task.Run(() => SynthesizeToWavThreadSafe(word, cachedFile), cancellationToken);
             if (success && File.Exists(cachedFile))
             {
-                PlayAudioFile(cachedFile);
+                await PlayAudioFileAsync(cachedFile, cancellationToken);
                 return;
             }
         }
@@ -91,7 +198,7 @@ public class PiperTtsEngine : ITtsEngine
                 writer.WriteLine(text);
             }
 
-            process.WaitForExit(5000);
+            process.WaitForExit(7000);
 
             if (process.ExitCode == 0 && File.Exists(tempPath))
             {
@@ -123,7 +230,7 @@ public class PiperTtsEngine : ITtsEngine
         }
     }
 
-    private void PlayAudioFile(string filePath)
+    private async Task PlayAudioFileAsync(string filePath, CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(_audioPlayerBinary)) return;
 
@@ -136,7 +243,42 @@ public class PiperTtsEngine : ITtsEngine
                 UseShellExecute = false,
                 CreateNoWindow = true
             };
-            Process.Start(psi);
+
+            using var process = new Process { StartInfo = psi };
+            process.Start();
+
+            lock (_processLock)
+            {
+                _currentPlayProcess = process;
+            }
+
+            try
+            {
+                await process.WaitForExitAsync(cancellationToken);
+            }
+            finally
+            {
+                lock (_processLock)
+                {
+                    if (_currentPlayProcess == process)
+                    {
+                        _currentPlayProcess = null;
+                    }
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            lock (_processLock)
+            {
+                try
+                {
+                    _currentPlayProcess?.Kill();
+                }
+                catch { }
+                _currentPlayProcess = null;
+            }
+            throw;
         }
         catch (Exception ex)
         {
@@ -147,8 +289,19 @@ public class PiperTtsEngine : ITtsEngine
     private static string SanitizeWordForFileName(string word)
     {
         var invalid = Path.GetInvalidFileNameChars();
-        var chars = word.Trim().ToUpperInvariant().Where(c => !invalid.Contains(c)).ToArray();
-        return new string(chars);
+        string clean = new string(word.Trim().Where(c => !invalid.Contains(c) && c != '?' && c != '!' && c != ':').ToArray());
+
+        if (clean.Length <= 40)
+        {
+            return clean.Replace(' ', '_').ToUpperInvariant();
+        }
+
+        // Bei längeren Sätzen (z. B. Mathe-Templates): Eindeutigen SHA256-Hash anhängen
+        using var sha = SHA256.Create();
+        byte[] hash = sha.ComputeHash(Encoding.UTF8.GetBytes(word.Trim()));
+        string hashStr = Convert.ToHexString(hash)[..16];
+        string prefix = clean[..Math.Min(20, clean.Length)].Replace(' ', '_').ToUpperInvariant();
+        return $"{prefix}_{hashStr}";
     }
 
     private static string? FindPiperBinary()
@@ -174,5 +327,12 @@ public class PiperTtsEngine : ITtsEngine
         };
 
         return candidates.FirstOrDefault(File.Exists);
+    }
+
+    public void Dispose()
+    {
+        _lifecycleCts.Cancel();
+        StopCurrentSpeech();
+        _lifecycleCts.Dispose();
     }
 }

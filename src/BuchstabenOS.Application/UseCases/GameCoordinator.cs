@@ -71,18 +71,21 @@ public class GameCoordinator : IGameContext
         var nextGame = _gameRegistry.GetGameById(nextGameId);
         if (nextGame == null) return;
 
+        // Bisherige Sprachausgabe abbrechen, um sauberen Übergang zu garantieren
+        _ttsEngine.StopCurrentSpeech();
+
         string introPrompt = _moderator?.GetGameIntroPrompt(nextGameId) ?? "Neues Spiel!";
 
         _activeGame = nextGame;
         await nextGame.InitializeAsync(this, cancellationToken);
         ActiveGameChanged?.Invoke(nextGame);
 
-        // Begrüßung vorlesen
+        // Begrüßung vorlesen (wartet dank Queue nun, bis sie fertig gesprochen ist)
         await _ttsEngine.SpeakWordAsync(introPrompt, cancellationToken);
 
         if (nextGame is AdditionGameModule mathGame)
         {
-            await Task.Delay(400, cancellationToken);
+            await Task.Delay(250, cancellationToken);
             await _ttsEngine.SpeakWordAsync(mathGame.CurrentTaskSpokenPrompt, cancellationToken);
         }
     }
