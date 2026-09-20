@@ -66,5 +66,8 @@ public record GameMetadata(
     IReadOnlyList<PedagogicalSkill> TargetSkills,
     IReadOnlyList<SkillPrerequisite> Prerequisites,
     IReadOnlyList<string> LearningObjectives,
-    int DifficultyLevel = 1
+    int DifficultyLevel = 1,
+    int DefaultAttentionSpanTasks = 3,
+    TimeSpan? DefaultAttentionSpanDuration = null,
+    int DefaultWeight = 50
 );

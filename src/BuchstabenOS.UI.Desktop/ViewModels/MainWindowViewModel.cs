@@ -7,7 +7,6 @@ using BuchstabenOS.Domain.Events;
 using BuchstabenOS.Domain.Model.Games;
 using BuchstabenOS.Domain.Model.Typing;
 using CommunityToolkit.Mvvm.ComponentModel;
-using Serilog;
 
 namespace BuchstabenOS.UI.Desktop.ViewModels;
 
@@ -19,7 +18,7 @@ public record HistoryLineItem(string Text, double Opacity, double FontSize);
 public partial class MainWindowViewModel : ViewModelBase
 {
     private readonly GameCoordinator _gameCoordinator;
-    private readonly FreeTypingGameModule _freeTypingGame;
+    private IRenderableGame? _activeRenderableGame;
 
     [ObservableProperty]
     private string _displayText = string.Empty;
@@ -34,10 +33,13 @@ public partial class MainWindowViewModel : ViewModelBase
     private string _celebratedWord = string.Empty;
 
     [ObservableProperty]
+    private bool _isWrongFeedbackActive;
+
+    [ObservableProperty]
     private bool _isParentOverlayVisible;
 
     [ObservableProperty]
-    private string _childHint = "Tippe einen Buchstaben!";
+    private string _childHint = "Tippe etwas auf der Tastatur!";
 
     public ObservableCollection<HistoryLineItem> FloatingHistoryLines { get; } = new();
 
@@ -45,19 +47,22 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public MainWindowViewModel(
         GameCoordinator gameCoordinator,
-        FreeTypingGameModule freeTypingGame,
         ParentMenuViewModel parentMenu)
     {
         _gameCoordinator = gameCoordinator ?? throw new ArgumentNullException(nameof(gameCoordinator));
-        _freeTypingGame = freeTypingGame ?? throw new ArgumentNullException(nameof(freeTypingGame));
         ParentMenu = parentMenu ?? throw new ArgumentNullException(nameof(parentMenu));
 
         ParentMenu.SpeechModeChanged += mode =>
         {
             _gameCoordinator.CurrentSpeechMode = mode;
-            _freeTypingGame.Stage.SpeechMode = mode;
         };
 
+        ParentMenu.GameSwitchRequested += async gameId =>
+        {
+            await _gameCoordinator.SwitchGameAsync(gameId);
+        };
+
+        _gameCoordinator.ActiveGameChanged += OnActiveGameChanged;
         _gameCoordinator.EventPublished += OnDomainEventPublished;
     }
 
@@ -65,7 +70,37 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         await _gameCoordinator.StartGameAsync("free-typing");
         await ParentMenu.InitializeAsync();
-        UpdateDisplayFromStage();
+        AttachToActiveGame(_gameCoordinator.ActiveRenderableGame);
+    }
+
+    private void OnActiveGameChanged(IGameModule newGame)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            AttachToActiveGame(newGame as IRenderableGame);
+        });
+    }
+
+    private void AttachToActiveGame(IRenderableGame? renderableGame)
+    {
+        if (_activeRenderableGame != null)
+        {
+            _activeRenderableGame.ViewStateChanged -= OnActiveGameStateChanged;
+        }
+
+        _activeRenderableGame = renderableGame;
+
+        if (_activeRenderableGame != null)
+        {
+            _activeRenderableGame.ViewStateChanged += OnActiveGameStateChanged;
+        }
+
+        UpdateDisplay();
+    }
+
+    private void OnActiveGameStateChanged()
+    {
+        Dispatcher.UIThread.Post(UpdateDisplay);
     }
 
     public async Task HandleKeyInputAsync(char keyChar, bool isSpace, bool isBackspace, bool ctrl, bool alt, bool shift, bool isEnter = false)
@@ -79,17 +114,11 @@ public partial class MainWindowViewModel : ViewModelBase
 
         if (IsParentOverlayVisible) return;
 
-        if (isEnter)
-        {
-            _freeTypingGame.Stage.CommitLine();
-            UpdateDisplayFromStage();
-            return;
-        }
-
-        var input = new GameInput(keyChar, isSpace, isBackspace, ctrl, alt, shift, DateTime.UtcNow);
+        char keyToSend = isEnter ? '\n' : keyChar;
+        var input = new GameInput(keyToSend, isSpace, isBackspace, ctrl, alt, shift, DateTime.UtcNow);
         await _gameCoordinator.HandleInputAsync(input);
 
-        UpdateDisplayFromStage();
+        UpdateDisplay();
     }
 
     public void ToggleParentOverlay()
@@ -101,13 +130,27 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
-    private void UpdateDisplayFromStage()
+    private void UpdateDisplay()
     {
-        DisplayText = _freeTypingGame.Stage.CurrentText;
-        FontSize = _freeTypingGame.Stage.CurrentFontSize.Points;
+        if (_activeRenderableGame == null)
+        {
+            DisplayText = string.Empty;
+            FontSize = 240.0;
+            ChildHint = "Spiel wird geladen...";
+            IsWordCelebrationActive = false;
+            IsWrongFeedbackActive = false;
+            FloatingHistoryLines.Clear();
+            return;
+        }
+
+        DisplayText = _activeRenderableGame.DisplayText;
+        FontSize = _activeRenderableGame.CurrentFontSizePoints;
+        IsWordCelebrationActive = _activeRenderableGame.IsCelebrating;
+        CelebratedWord = _activeRenderableGame.CelebrationMessage;
+        IsWrongFeedbackActive = _activeRenderableGame.IsWrongFeedback;
 
         FloatingHistoryLines.Clear();
-        var completed = _freeTypingGame.Stage.CompletedLines;
+        var completed = _activeRenderableGame.CompletedLines;
         int count = completed.Count;
 
         // Die Zeilen schweben über der Bildschirmmitte nach oben und verblassen sanft:
@@ -139,7 +182,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
         if (string.IsNullOrEmpty(DisplayText) && count == 0)
         {
-            ChildHint = "Tippe einen Buchstaben auf der Tastatur!";
+            ChildHint = _activeRenderableGame.HintText;
         }
         else
         {
@@ -154,17 +197,48 @@ public partial class MainWindowViewModel : ViewModelBase
             switch (domainEvent)
             {
                 case WordRecognizedEvent wordEvent:
-                    CelebratedWord = wordEvent.Word;
+                    CelebratedWord = $"Wort gezaubert: {wordEvent.Word}!";
                     IsWordCelebrationActive = true;
                     Task.Delay(2500).ContinueWith(_ =>
                     {
-                        Dispatcher.UIThread.Post(() => IsWordCelebrationActive = false);
+                        Dispatcher.UIThread.Post(() =>
+                        {
+                            IsWordCelebrationActive = false;
+                            UpdateDisplay();
+                        });
+                    });
+                    break;
+
+                case MathTaskSolvedEvent solvedEvent:
+                    CelebratedWord = $"{solvedEvent.TaskText} ⭐";
+                    IsWordCelebrationActive = true;
+                    Task.Delay(2500).ContinueWith(_ =>
+                    {
+                        Dispatcher.UIThread.Post(() =>
+                        {
+                            IsWordCelebrationActive = false;
+                            UpdateDisplay();
+                        });
+                    });
+                    break;
+
+                case MathTaskFailedEvent:
+                    IsWrongFeedbackActive = true;
+                    Task.Delay(1400).ContinueWith(_ =>
+                    {
+                        Dispatcher.UIThread.Post(() =>
+                        {
+                            IsWrongFeedbackActive = false;
+                            UpdateDisplay();
+                        });
                     });
                     break;
 
                 case StageResetEvent:
                     IsWordCelebrationActive = false;
+                    IsWrongFeedbackActive = false;
                     CelebratedWord = string.Empty;
+                    UpdateDisplay();
                     break;
             }
         });

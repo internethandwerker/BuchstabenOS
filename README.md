@@ -51,7 +51,23 @@ Vorschulkinder lieben Tastaturen. Aber normale Betriebssysteme sind voller Falle
 ### 5. Unsichtbares Elternmenü mit Kiosk-Exit
 *   **Geheimer Shortcut:** `Strg + Alt + Shift + P`
 *   **Sicherheits-PIN:** Geschützt durch SHA-256 (Standard: `1337`).
-*   **Funktionen:** Lautstärke regeln, Sprachmodus umschalten, Kinderwörterbuch live bearbeiten, Laptop herunterfahren oder mit Returncode 42 direkt auf den Linux-Desktop zurückkehren.
+*   **Funktionen:** Lautstärke regeln, Sprachmodus umschalten, Kinderwörterbuch live bearbeiten, Spiele-Einstellungen & Gewichtung konfigurieren, Laptop herunterfahren oder mit Returncode 42 direkt auf den Linux-Desktop zurückkehren.
+
+### 6. Vorschul-Mathespiel "Addition" (Plus-Rechnen)
+*   **Klare, zentrierte Aufgabenstellung:** Erscheint als dynamisch skalierte Gleichung (z. B. `2 + 3 = `), die perfekt auf die Bildschirmmitte zentriert ist.
+*   **Lebendige Vorlesetemplates:** Jede Aufgabe wird direkt mit abwechslungsreichen deutschen Formulierungen vorgelesen (z. B. *"Kannst du mir sagen, was 2 plus 3 ist?"*, *"Was ist 2 plus 3?"*, *"Wenn man 2 und 3 addiert, was ist das richtige Ergebnis?"*, *"Du hast 2 und fügst 3 hinzu? Wieviel hast du dann?"*).
+*   **Fehlertoleranter Eingabefilter:** Ausschließlich Ziffern `0-9`, `Backspace` und `Enter` werden akzeptiert. Alle anderen Tasten werden ignoriert.
+*   **Auto-Prüfung:** Das Spiel wertet automatisch aus, sobald die erforderliche Ziffernanzahl eingegeben wurde (oder wenn `Enter` gedrückt wird).
+*   **Pädagogische Wiederholung:** Bei einer falschen Antwort ertönt ein sanftes, motivierendes Feedback ("Oh, fast! Versuch es gleich noch einmal!"), und dieselbe Aufgabe wird erneut gestellt, damit das Kind es selbstständig meistern kann.
+*   **Konfigurierbarer Zahlenraum:** Einstellbar im Elternmenü (Standard: Rechnen bis 10; Bereich 2–20).
+
+### 7. Pädagogische Spiel-Moderation (Aufmerksamkeitsspannen & Rotation)
+*   **Automatischer Spielwechsel:** Erkennt das Erreichen der kindlichen Aufmerksamkeitsspanne:
+    *   **Mathe-Addition:** Nach **2 gelösten Aufgaben** (Default).
+    *   **Buchstaben-Zauber:** Nach **5 erkannten Wörtern** oder 5 Minuten.
+*   **Gewichteter Zufallswürfel:** Ermöglicht flexible Verteilung (z. B. 50% Mathe, 50% Tippen).
+*   **Sprachliche Überleitung:** Moritz wird beim Wechsel freundlich vom System mitgenommen (*"Super gemacht! Jetzt spielen wir Buchstaben-Zauber!"*).
+*   **Volle Elternkontrolle:** Im Elternmenü können Spiele manuell gewechselt, Gewichte verschoben oder die automatische Rotation deaktiviert werden.
 
 ---
 
@@ -138,10 +154,11 @@ Richtet eine isolierte X11-Session ein:
 ## 🗺️ Roadmap & Meilensteine
 
 *   [x] **Phase 1: MVP (v1.0)** – Vollständig funktionierende Tastatur-Bühne, Multitrack-Audio, Trie-Wörterbuch, Piper-TTS, Elternmenü und Kiosk-Session.
-*   [ ] **Phase 1.5: Die Papa-Stimme (v1.1)** – Eigene 30 Studio-Samples für Anlaute ([b], [d], [m]) + Fine-Tuning einer persönlichen Piper-TTS-Stimme.
+*   [x] **Phase 1.6: Mathe-Modul & Spiel-Moderator** – Vorschul-Addition mit Vorlesetemplates, automatische Eingabeprüfung, Wiederholung bei falscher Antwort und aufmerksamkeitsspannen-basierte Spiele-Rotation.
+*   [ ] **Phase 1.7: Die Papa-Stimme (v1.1)** – Eigene 30 Studio-Samples für Anlaute ([b], [d], [m]) + Fine-Tuning einer persönlichen Piper-TTS-Stimme.
 *   [ ] **Phase 2: Farben & Belohnungen (v1.2)** – Montessori-Färbung (Vokale blau/rot, Konsonanten warmweiß), Partikel/Konfetti und Erfolgs-Jingles.
 *   [ ] **Phase 3: Bild-Wörterbuch & Belohnungs-Videos (v2.0)** – Freundliche Tier- und Alltagsfotos bei erkannten Wörtern, 15-Sekunden-Clips bei 5 Sternen.
-*   [ ] **Phase 4: Neue Lernmodule (v3.0)** – "Mathe-Zwerg" (1+1=?), "Buchstaben-Detektiv" (Finde das B wie Bär).
+*   [ ] **Phase 4: Weitere Lernmodule** – "Zahlenstrahl", "Buchstaben-Detektiv" (Finde das B wie Bär).
 
 Ausführliche Dokumentation findest du im Ordner [`docs/`](docs/).
 

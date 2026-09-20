@@ -39,9 +39,27 @@ public partial class ParentMenuViewModel : ViewModelBase
     [ObservableProperty]
     private string _statusNotification = string.Empty;
 
+    // Spiele-Konfiguration & Moderation
+    [ObservableProperty]
+    private bool _autoGameSwitching = true;
+
+    [ObservableProperty]
+    private int _mathMaxSum = 10;
+
+    [ObservableProperty]
+    private int _mathWeight = 50;
+
+    [ObservableProperty]
+    private int _typingWeight = 50;
+
+    [ObservableProperty]
+    private string _activeGameId = "free-typing";
+
     public ObservableCollection<string> GameWords { get; } = new();
 
     public event Action<SpeechMode>? SpeechModeChanged;
+    public event Action<string>? GameSwitchRequested;
+    public event Action<AppSettings>? SettingsUpdated;
 
     public ParentMenuViewModel(
         IWordDictionaryRepository dictionaryRepo,
@@ -62,6 +80,19 @@ public partial class ParentMenuViewModel : ViewModelBase
         _settings = await _settingsRepo.LoadSettingsAsync();
         IsPhoneticSpeechMode = _settings.SpeechMode == SpeechMode.Phonetic;
         Volume = _settings.VolumePercent;
+        AutoGameSwitching = _settings.AutoGameSwitching;
+        MathMaxSum = _settings.AdditionMaxSum;
+        ActiveGameId = _settings.ActiveGameId;
+
+        if (_settings.GameWeights.TryGetValue("math-addition", out int mw))
+        {
+            MathWeight = mw;
+        }
+        if (_settings.GameWeights.TryGetValue("free-typing", out int tw))
+        {
+            TypingWeight = tw;
+        }
+
         await LoadWordsAsync();
     }
 
@@ -76,7 +107,7 @@ public partial class ParentMenuViewModel : ViewModelBase
     [RelayCommand]
     public void SubmitPin()
     {
-        var parentPin = new ParentPin("1337"); // Standard-PIN oder aus Settings
+        var parentPin = new ParentPin("1337"); // Standard-PIN
         if (parentPin.Verify(PinInput))
         {
             IsAuthenticated = true;
@@ -121,20 +152,60 @@ public partial class ParentMenuViewModel : ViewModelBase
         if (modeName == "Phonetic")
         {
             IsPhoneticSpeechMode = true;
+            _settings.SpeechMode = SpeechMode.Phonetic;
             SpeechModeChanged?.Invoke(SpeechMode.Phonetic);
         }
         else
         {
             IsPhoneticSpeechMode = false;
+            _settings.SpeechMode = SpeechMode.Alphabet;
             SpeechModeChanged?.Invoke(SpeechMode.Alphabet);
         }
+        _ = SaveSettingsAsync();
     }
 
     [RelayCommand]
     public void ChangeVolume(int delta)
     {
         Volume = Math.Clamp(Volume + delta, 0, 100);
+        _settings.VolumePercent = Volume;
         _systemControl.SetSystemVolume(Volume);
+        _ = SaveSettingsAsync();
+    }
+
+    [RelayCommand]
+    public void SwitchActiveGame(string gameId)
+    {
+        ActiveGameId = gameId;
+        _settings.ActiveGameId = gameId;
+        GameSwitchRequested?.Invoke(gameId);
+        StatusNotification = gameId == "math-addition" ? "Mathe-Addition aktiviert!" : "Buchstaben-Zauber aktiviert!";
+        _ = SaveSettingsAsync();
+    }
+
+    [RelayCommand]
+    public async Task SaveGameSettingsAsync()
+    {
+        _settings.AutoGameSwitching = AutoGameSwitching;
+        _settings.AdditionMaxSum = MathMaxSum;
+        _settings.GameWeights["math-addition"] = MathWeight;
+        _settings.GameWeights["free-typing"] = TypingWeight;
+
+        await SaveSettingsAsync();
+        StatusNotification = "Spiele-Einstellungen gespeichert!";
+        SettingsUpdated?.Invoke(_settings);
+    }
+
+    private async Task SaveSettingsAsync()
+    {
+        try
+        {
+            await _settingsRepo.SaveSettingsAsync(_settings);
+        }
+        catch
+        {
+            // Best effort
+        }
     }
 
     [RelayCommand]

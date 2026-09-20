@@ -1,3 +1,7 @@
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using BuchstabenOS.Application.Ports;
 using BuchstabenOS.Domain.Events;
 using BuchstabenOS.Domain.Model.Games;
@@ -6,31 +10,36 @@ using BuchstabenOS.Domain.Model.Typing;
 namespace BuchstabenOS.Application.UseCases;
 
 /// <summary>
-/// Orchestriert das Zusammenspiel zwischen aktuellem Spielmodul,
-/// Audioausgabe (WAV-Samples für Buchstaben vs. TTS für Wörter)
-/// und System-Events.
+/// Orchestriert das Zusammenspiel zwischen dem aktuellem Spielmodul,
+/// Audioausgabe (WAV-Samples für Buchstaben vs. TTS für Wörter & Mathe-Aufgaben),
+/// Spiele-Moderator (Aufmerksamkeitsspanne & Wechsel) und System-Events.
 /// </summary>
 public class GameCoordinator : IGameContext
 {
     private readonly IGameRegistry _gameRegistry;
     private readonly IAudioPlayer _audioPlayer;
     private readonly ITtsEngine _ttsEngine;
+    private readonly IGameModerator? _moderator;
     private IGameModule? _activeGame;
 
     public string ActiveGameId => _activeGame?.Metadata.Id ?? string.Empty;
     public IGameModule? ActiveGame => _activeGame;
+    public IRenderableGame? ActiveRenderableGame => _activeGame as IRenderableGame;
     public SpeechMode CurrentSpeechMode { get; set; } = SpeechMode.Phonetic;
 
     public event Action<IDomainEvent>? EventPublished;
+    public event Action<IGameModule>? ActiveGameChanged;
 
     public GameCoordinator(
         IGameRegistry gameRegistry,
         IAudioPlayer audioPlayer,
-        ITtsEngine ttsEngine)
+        ITtsEngine ttsEngine,
+        IGameModerator? moderator = null)
     {
         _gameRegistry = gameRegistry ?? throw new ArgumentNullException(nameof(gameRegistry));
         _audioPlayer = audioPlayer ?? throw new ArgumentNullException(nameof(audioPlayer));
         _ttsEngine = ttsEngine ?? throw new ArgumentNullException(nameof(ttsEngine));
+        _moderator = moderator;
     }
 
     /// <summary>
@@ -43,6 +52,26 @@ public class GameCoordinator : IGameContext
 
         _activeGame = game;
         await game.InitializeAsync(this, cancellationToken);
+        ActiveGameChanged?.Invoke(game);
+    }
+
+    /// <summary>
+    /// Wechselt sanft zu einem neuen Spiel, spielt eine Begrüßungs-Ansage ab
+    /// und initialisiert die neue Spiel-Bühne.
+    /// </summary>
+    public async Task SwitchGameAsync(string nextGameId, CancellationToken cancellationToken = default)
+    {
+        var nextGame = _gameRegistry.GetGameById(nextGameId);
+        if (nextGame == null) return;
+
+        string introPrompt = _moderator?.GetGameIntroPrompt(nextGameId) ?? "Neues Spiel!";
+
+        _activeGame = nextGame;
+        await nextGame.InitializeAsync(this, cancellationToken);
+        ActiveGameChanged?.Invoke(nextGame);
+
+        // Begrüßung vorlesen
+        await _ttsEngine.SpeakWordAsync(introPrompt, cancellationToken);
     }
 
     /// <summary>
@@ -79,12 +108,12 @@ public class GameCoordinator : IGameContext
         switch (domainEvent)
         {
             case LetterTypedEvent letterEvent when letterEvent.IsLetter:
-                // Stufe 1: Sofortiges pre-rendered Sample abspielen
+                // Sofortiges vorgerendertes Laut-Sample abspielen
                 await _audioPlayer.PlayLetterAsync(letterEvent.Character, CurrentSpeechMode);
                 break;
 
             case WordRecognizedEvent wordEvent:
-                // Stufe 2: Wort erkannt! Kurzer Jingle + Piper TTS Aussprache
+                // Wort erkannt! Jingle + TTS
                 await _audioPlayer.PlayJingleAsync("word_success");
                 await _ttsEngine.SpeakWordAsync(wordEvent.Word);
                 break;
@@ -92,6 +121,40 @@ public class GameCoordinator : IGameContext
             case SpacePressedEvent spaceEvent when !string.IsNullOrWhiteSpace(spaceEvent.RawWord):
                 // Leertaste: Vorlesen des gebildeten Wortes (auch Quatschwörter)
                 await _ttsEngine.SpeakWordAsync(spaceEvent.RawWord);
+                break;
+
+            case MathTaskGeneratedEvent generatedEvent:
+                // Matheaufgabe vorlesen! (Template: "Kannst du mir sagen, was 2 plus 3 ist?")
+                await _ttsEngine.SpeakWordAsync(generatedEvent.SpokenPrompt);
+                break;
+
+            case MathTaskSolvedEvent solvedEvent:
+                // Richtig gerechnet! Jingle + Lob
+                await _audioPlayer.PlayJingleAsync("word_success");
+                await _ttsEngine.SpeakWordAsync(solvedEvent.SpokenPraise);
+                break;
+
+            case MathTaskFailedEvent failedEvent:
+                // Falscheingabe: Liebevolles Feedback
+                await _ttsEngine.SpeakWordAsync(failedEvent.SpokenEncouragement);
+                break;
+
+            case GameRoundCompletedEvent roundEv when _moderator != null:
+                // Prüfe Aufmerksamkeitsspanne für automatischen Spielwechsel
+                var score = _activeGame?.GetScore() ?? KnowledgeScore.Empty;
+                if (_moderator.RecordRoundCompleted(roundEv.GameId, roundEv.TotalCompletedRounds, score.PlayTime))
+                {
+                    string nextGameId = _moderator.SelectNextGame(roundEv.GameId, _gameRegistry.GetAllGames());
+                    if (!string.IsNullOrEmpty(nextGameId) && !nextGameId.Equals(roundEv.GameId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Sanfte Verzögerung, damit die Erfolgs-Animation erst gefeiert werden kann
+                        _ = Task.Run(async () =>
+                        {
+                            await Task.Delay(2600);
+                            await SwitchGameAsync(nextGameId);
+                        });
+                    }
+                }
                 break;
         }
     }

@@ -43,6 +43,16 @@ timeline
 
 ---
 
+## 🎲 Phase 1.6: Mathespiel "Addition" & Spiele-Moderation (v1.2) – *Fertiggestellt* ✅
+
+*   [x] **Mathespiel Addition (`AdditionGameModule`):** Kindgerechte Additionsaufgaben ($a+b=c$), zentrierte Großdarstellung, Ziffern-Filter, Auto-Auswertung bei Ziel-Länge oder Enter.
+*   [x] **Aufgaben-Vorlesen mit rotierenden Templates:** Z. B. *"Kannst du mir sagen, was zwei plus fünf ist?"*, *"Wenn man zwei und fünf addiert, was ist das richtige Ergebnis?"*.
+*   [x] **Fehlertoleranz:** Dieselbe Aufgabe wird bei Fehlern mit liebevoller Ermutigung wiederholt.
+*   [x] **Dynamische Spiele-Konfiguration:** Generic Options im Elternportal mit Slider für *"Rechnen bis (Maximales Ergebnis)"* (Standard: 10).
+*   [x] **Aufmerksamkeits-Moderator (`WeightedRandomGameModerator`):** Gleichberechtigter Wechsel zwischen Mathe und Buchstaben (Standard: 2 Matheaufgaben, 5 getippte Wörter) mit einstellbarer Würfel-Gewichtung.
+
+---
+
 ## 🎨 Phase 2: Pädagogische Farben & Audio-Belohnungen (v1.2)
 
 *   **Montessori-Farbschema:**  

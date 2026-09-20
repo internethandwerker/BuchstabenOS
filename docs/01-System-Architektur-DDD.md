@@ -123,42 +123,28 @@ SOLID-Prinzip: **Dependency Inversion (DIP)**. Die Anwendungslogik definiert Sch
 
 ---
 
-## 🎮 4. Erweiterbarkeit: State-Machine & Modul-System
+## 🎮 4. Das modulare Spielesystem & Moderation
 
-Damit BuchstabenOS später mehr als nur ein Tippspiel sein kann (z. B. **Mathe-Modul**, **Tierstimmen-Erkennung**, **Belohnungs-Animationen**), ist die Architektur als Zustandsautomat (State Machine) konzipiert:
+BuchstabenOS ist eine vollwertige, erweiterbare Plattform für Vorschul-Lernspiele.
 
-```mermaid
-stateDiagram-v2
-    [*] --> FreeTypingMode
-    
-    FreeTypingMode --> WordCelebrationMode : Gültiges Wort erkannt!
-    WordCelebrationMode --> FreeTypingMode : Animation beendet
-    
-    FreeTypingMode --> ParentOverlayMode : Secret Shortcut + PIN
-    ParentOverlayMode --> FreeTypingMode : Schließen / Abbrechen
-    
-    ParentOverlayMode --> SystemExit : "Desktop freigeben"
-    ParentOverlayMode --> Shutdown : "Herunterfahren"
+### Die Spiel-Schnittstellen
 
-    state "Zukunfts-Module" as Future {
-        FreeTypingMode --> MathAdventureMode : Über Elternmenü wählbar
-        MathAdventureMode --> FreeTypingMode
-        FreeTypingMode --> WordQuizMode : "Finde den Buchstaben"
-        WordQuizMode --> FreeTypingMode
-    }
-```
+#### `IGameModule` & `IRenderableGame`
+Jedes Spiel (wie `FreeTypingGameModule` oder `AdditionGameModule`) implementiert:
+*   **`IGameModule`**: Lifecycle, Metadaten (Pädagogische Skills, Alter, Lernziele), Eingabeverarbeitung (`ProcessInputAsync`), Wissens-Score (`KnowledgeScore`).
+*   **`IRenderableGame`**: Visuelle Entkopplung für die UI (`DisplayText`, `CurrentFontSizePoints`, `HintText`, `CompletedLines`, `IsCelebrating`, `IsWrongFeedback`).
+*   **`IGameConfigurable`**: Bereitstellung dynamischer Konfigurations-Deskriptoren für das Elternportal (z.B. "Rechnen bis").
 
-### Plugin-/GameMode-Schnittstelle
-Jeder Modus implementiert das Interface:
-```csharp
-public interface IGameMode
-{
-    string ModeId { get; }
-    string DisplayName { get; }
-    void Initialize(IGameContext context);
-    void HandleKey(Keystroke key);
-    void Render(IRenderContext renderContext);
-    void Dispose();
-}
-```
-Dadurch kann die V1 (`FreeTypingGameMode`) jederzeit ohne Refactoring um `MathGameMode` oder `MemoryGameMode` ergänzt werden!
+#### `AdditionGameModule` (Mathespiel: Addition)
+*   Kindgerechte Plus-Aufgaben ($a + b = c$) innerhalb des konfigurierbaren Rahmens (`MaxSum`, Standard: 10).
+*   Rotierende Vorlese-Templates ("Kannst du mir sagen, was zwei plus drei ist?").
+*   Ziffern-Filter (nur '0'..'9', Backspace, Enter).
+*   Automatische Auswertung bei Erreichen der Ziffernlänge.
+*   Wiederholung derselben Aufgabe bei Fehlern zur Frustrationsvermeidung.
+
+### 🎲 Der Spiele-Moderator (`IGameModerator` / `WeightedRandomGameModerator`)
+*   Überwacht die Aufmerksamkeitsspanne:
+    *   **Mathe-Addition:** Wechsel nach **2 gelösten Aufgaben**.
+    *   **Buchstaben-Zauber:** Wechsel nach **5 erkannten Wörtern** oder **5 Minuten** aktiver Spielzeit.
+*   Würfelt nach Ablauf der Spanne unter Berücksichtigung konfigurierbarer Gewichte (z.B. Mathe 50%, Buchstaben 50%) das nächste Spiel aus.
+*   Zukunftssicher: Das Interface kann nahtlos durch einen KI-Tutor / LLM-Agenten ersetzt werden!

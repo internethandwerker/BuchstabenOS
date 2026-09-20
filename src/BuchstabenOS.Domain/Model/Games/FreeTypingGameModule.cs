@@ -10,7 +10,7 @@ namespace BuchstabenOS.Domain.Model.Games;
 /// sieht die Schrift dynamisch wachsen und schrumpfen und erfährt
 /// die magische Worterkennung, wenn ein echtes deutsches Wort entsteht.
 /// </summary>
-public class FreeTypingGameModule : IGameModule
+public class FreeTypingGameModule : IGameModule, IRenderableGame
 {
     private IGameContext? _context;
     private int _successfulWords;
@@ -19,6 +19,17 @@ public class FreeTypingGameModule : IGameModule
     private DateTime _sessionStartTime = DateTime.UtcNow;
 
     public TextStage Stage { get; }
+
+    // IRenderableGame
+    public string DisplayText => Stage.CurrentText;
+    public double CurrentFontSizePoints => Stage.CurrentFontSize.Points;
+    public string HintText => "Tippe einen Buchstaben auf der Tastatur!";
+    public IReadOnlyList<string> CompletedLines => Stage.CompletedLines;
+    public bool IsCelebrating { get; private set; }
+    public string CelebrationMessage { get; private set; } = string.Empty;
+    public bool IsWrongFeedback => false;
+
+    public event Action? ViewStateChanged;
 
     public GameMetadata Metadata { get; } = new(
         Id: "free-typing",
@@ -44,7 +55,10 @@ public class FreeTypingGameModule : IGameModule
             "Entdecken von Wortgrenzen (Leertaste).",
             "Erleben von Selbstwirksamkeit durch sofortige akustische Resonanz."
         },
-        DifficultyLevel: 1
+        DifficultyLevel: 1,
+        DefaultAttentionSpanTasks: 5, // Alex: "für den buchstaben zauber 5 erkannte wörter oder 5 minuten"
+        DefaultAttentionSpanDuration: TimeSpan.FromMinutes(5),
+        DefaultWeight: 50
     );
 
     public bool IsActive { get; private set; }
@@ -80,6 +94,10 @@ public class FreeTypingGameModule : IGameModule
         {
             Stage.PressSpace(viewportWidth, viewportHeight);
         }
+        else if (input.KeyChar == '\n' || input.KeyChar == '\r')
+        {
+            Stage.CommitLine();
+        }
         else if (input.KeyChar != '\0')
         {
             _exploredLetters.Add(char.ToUpperInvariant(input.KeyChar));
@@ -87,18 +105,34 @@ public class FreeTypingGameModule : IGameModule
         }
 
         var events = Stage.DequeueEvents();
+        var additionalEvents = new List<IDomainEvent>();
 
         // Prüfe auf Erfolgsereignisse für den Score
         foreach (var ev in events)
         {
-            if (ev is WordRecognizedEvent)
+            if (ev is WordRecognizedEvent wordEvent)
             {
                 _successfulWords++;
+                IsCelebrating = true;
+                CelebrationMessage = $"Wort gezaubert: {wordEvent.Word}!";
+                var roundEv = new GameRoundCompletedEvent(Metadata.Id, _successfulWords);
+                additionalEvents.Add(roundEv);
+                _context?.PublishEvent(roundEv);
+            }
+            else if (ev is StageResetEvent)
+            {
+                IsCelebrating = false;
+                CelebrationMessage = string.Empty;
             }
             _context?.PublishEvent(ev);
         }
 
-        return ValueTask.FromResult(new GameInputResult(true, events));
+        var allEvents = new List<IDomainEvent>(events);
+        allEvents.AddRange(additionalEvents);
+
+        ViewStateChanged?.Invoke();
+
+        return ValueTask.FromResult(new GameInputResult(true, allEvents));
     }
 
     public KnowledgeScore GetScore()
@@ -119,6 +153,9 @@ public class FreeTypingGameModule : IGameModule
         _interactionCount = 0;
         _successfulWords = 0;
         _exploredLetters.Clear();
+        IsCelebrating = false;
+        CelebrationMessage = string.Empty;
         _sessionStartTime = DateTime.UtcNow;
+        ViewStateChanged?.Invoke();
     }
 }

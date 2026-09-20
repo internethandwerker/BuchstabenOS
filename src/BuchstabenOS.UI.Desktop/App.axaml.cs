@@ -107,15 +107,18 @@ public partial class App : Avalonia.Application
 
         services.AddSingleton<TextStage>();
         services.AddSingleton<FreeTypingGameModule>();
+        services.AddSingleton<AdditionGameModule>();
 
-        // Application Game Registry & Coordinator
+        // Application Game Registry, Moderator & Coordinator
         services.AddSingleton<IGameRegistry>(sp =>
         {
             var registry = new InMemoryGameRegistry();
             registry.RegisterGame(sp.GetRequiredService<FreeTypingGameModule>());
+            registry.RegisterGame(sp.GetRequiredService<AdditionGameModule>());
             return registry;
         });
 
+        services.AddSingleton<IGameModerator, WeightedRandomGameModerator>();
         services.AddSingleton<GameCoordinator>();
 
         // ViewModels
@@ -130,6 +133,16 @@ public partial class App : Avalonia.Application
             {
                 mainVmRef?.ToggleParentOverlay();
             });
+
+            parentVm.SettingsUpdated += updatedSettings =>
+            {
+                var moderator = sp.GetRequiredService<IGameModerator>();
+                moderator.UpdateSettings(updatedSettings);
+
+                var additionGame = sp.GetRequiredService<AdditionGameModule>();
+                additionGame.MaxSum = updatedSettings.AdditionMaxSum;
+            };
+
             return parentVm;
         });
 

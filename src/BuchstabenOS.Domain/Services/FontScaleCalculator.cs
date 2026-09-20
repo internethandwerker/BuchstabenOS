@@ -34,6 +34,14 @@ public class FontScaleCalculator
     /// <summary>
     /// Berechnet die Schriftgröße für eine gegebene Zeile im Viewport.
     /// </summary>
+    public FontSize Calculate(int characterCount, double viewportWidth, double viewportHeight)
+    {
+        return Calculate(characterCount, viewportWidth, viewportHeight, out _);
+    }
+
+    /// <summary>
+    /// Berechnet die Schriftgröße für eine gegebene Zeile im Viewport.
+    /// </summary>
     /// <param name="characterCount">Anzahl der Zeichen in der Zeile.</param>
     /// <param name="viewportWidth">Verfügbare Bildschirmbreite in Pixeln.</param>
     /// <param name="viewportHeight">Verfügbare Bildschirmhöhe in Pixeln.</param>
